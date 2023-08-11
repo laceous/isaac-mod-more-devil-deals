@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+    <name>More Devil Deals (+Angel Deals)</name>
+    <directory>more devil deals</directory>
+    <id>3018276877</id>
+    <description>This mod enables Devil Deals (+Angel Deals) to show up in more stages:
+[list]
+    [*]Basement I (early deal)
+    [*]Mausoleum II (Dad's Note)
+    [*]Corpse II (Mother)
+    [*]??? (Hush)
+    [*]Sheol / Cathedral (Satan / Isaac)
+    [*]Dark Room / Chest (The Lamb / ???)
+    [*]The Void (Delirium)
+[/list]
+
+Normal RNG should apply. It won't show the percentages in the UI though.
+
+Fighting Hush doesn't yield much of a reward outside of a guaranteed path to The Void. This mod gives you more incentive to go that way by giving you a guaranteed Devil or Angel deal once you defeat Hush. Simply walk into The Void room and you'll be presented with both options. No Duality or Goat Head required.
+
+Mod Config Menu can be used to enable or disable specific stages.</description>
+    <version>1.1</version>
+    <visibility>Public</visibility>
+    <tag id="Lua"/>
+    <tag id="Rooms"/>
+    <tag id="Floors"/>
+    <tag id="Bosses"/>
+    <tag id="Tweaks"/>
+</metadata>
