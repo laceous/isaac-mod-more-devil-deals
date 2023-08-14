@@ -248,7 +248,7 @@ function mod:getDevilRoomChance()
   local chance = room:GetDevilRoomChance()
   
   if not game:IsGreedMode() then
-    if (mod.state.devilRoomSpawned == false and chance < 1.0) or
+    if (mod.state.devilRoomSpawned == false and chance < 1.0) or -- goat head / eucharist
        (not mod.state.enableBasementI and mod:isBasementI(false)) or
        (not mod.state.enablePreAscent and mod:isPreAscent(false)) or
        (not mod.state.enableAscent and mod:isAscent(false)) or
