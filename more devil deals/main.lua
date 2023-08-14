@@ -6,23 +6,31 @@ mod.onGameStartHasRun = false
 
 mod.state = {}
 mod.state.devilRoomSpawned = nil -- 3 state: nil, false, true; likely edge case w/ glowing hourglass going back a floor
+mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL -- ascent, room:GetLastDevilRoomStage doesn't work
 mod.state.enableBasementI = true
 mod.state.enablePreAscent = false
+mod.state.enableAscent = false
 mod.state.enableCorpseII = true
 mod.state.enableBlueWomb = true
-mod.state.enableSheol = true
-mod.state.enableDarkRoom = true
+mod.state.enableSheol = true    -- cathedral
+mod.state.enableDarkRoom = true -- chest
 mod.state.enableTheVoid = true
+mod.state.enableHome = true
 
 function mod:onGameStart(isContinue)
   if mod:HasData() then
     local _, state = pcall(json.decode, mod:LoadData())
     
     if type(state) == 'table' then
-      if isContinue and type(state.devilRoomSpawned) == 'boolean' then
-        mod.state.devilRoomSpawned = state.devilRoomSpawned
+      if isContinue then
+        if type(state.devilRoomSpawned) == 'boolean' then
+          mod.state.devilRoomSpawned = state.devilRoomSpawned
+        end
+        if math.type(state.lastDevilRoomStage) == 'integer' and state.lastDevilRoomStage >= LevelStage.STAGE_NULL and state.lastDevilRoomStage < LevelStage.NUM_STAGES then
+          mod.state.lastDevilRoomStage = state.lastDevilRoomStage
+        end
       end
-      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid' }) do
+      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome' }) do
         if type(state[v]) == 'boolean' then
           mod.state[v] = state[v]
         end
@@ -38,7 +46,9 @@ function mod:onGameExit(shouldSave)
   if shouldSave then
     mod:save()
     mod.state.devilRoomSpawned = nil
+    mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
   else
+    mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
     mod.state.devilRoomSpawned = nil
     mod:save()
   end
@@ -58,15 +68,47 @@ function mod:save(settingsOnly)
     
     state.enableBasementI = mod.state.enableBasementI
     state.enablePreAscent = mod.state.enablePreAscent
+    state.enableAscent = mod.state.enableAscent
     state.enableCorpseII = mod.state.enableCorpseII
     state.enableBlueWomb = mod.state.enableBlueWomb
     state.enableSheol = mod.state.enableSheol
     state.enableDarkRoom = mod.state.enableDarkRoom
     state.enableTheVoid = mod.state.enableTheVoid
+    state.enableHome = mod.state.enableHome
     
     mod:SaveData(json.encode(state))
   else
     mod:SaveData(json.encode(mod.state))
+  end
+end
+
+-- onNewLevel runs after onNewRoom, but we don't do anything in onNewRoom in the first room of the floor, so this is ok
+function mod:onNewLevel()
+  if not game:IsGreedMode() then
+    mod.state.devilRoomSpawned = nil
+    
+    if mod:isPreAscent(false) or mod:isAscent(false) then
+      if mod.state.lastDevilRoomStage > LevelStage.STAGE_NULL then
+        local level = game:GetLevel()
+        local stage = level:GetStage()
+        if mod:isRepentanceStageType() then
+          stage = stage + 1
+        end
+        
+        -- edge case: STAGE_NULL (0) always gives 100%
+        -- positive and negative numbers work as expected
+        local diff = math.abs(mod.state.lastDevilRoomStage - stage)
+        local lastDevilRoomStage = stage - diff
+        if lastDevilRoomStage == LevelStage.STAGE_NULL and diff < 3 then -- 33, 67, 100
+          lastDevilRoomStage = lastDevilRoomStage + 1
+        end
+        
+        -- otherwise we get 100% on every floor in the ascent which feels cheap
+        game:SetLastDevilRoomStage(lastDevilRoomStage)
+      end
+    else
+      mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
+    end
   end
 end
 
@@ -76,33 +118,21 @@ function mod:onNewRoom()
   end
   
   if not game:IsGreedMode() then
-    local level = game:GetLevel()
-    local room = level:GetCurrentRoom()
-    
-    if level:GetCurrentRoomIndex() == level:GetStartingRoomIndex() and mod:getCurrentDimension() == 0 and room:IsFirstVisit() then
-      mod.state.devilRoomSpawned = nil
-    end
+    local room = game:GetRoom()
     
     if room:IsClear() then
-      if mod:isBasementI(true) then
-        mod:spawnDevilRoomDoorSimple(false, not (mod.state.enableBasementI and (mod.state.devilRoomSpawned or room:GetDevilRoomChance() >= 1.0))) -- goat head / eucharist
-      elseif mod:isPreAscent(true) then
-        local animate = false
-        if mod.state.devilRoomSpawned == nil then
-          mod.state.devilRoomSpawned = true
-          animate = true
-        end
-        mod:spawnDevilRoomDoorSimple(animate, not (mod.state.enablePreAscent and (mod.state.devilRoomSpawned or room:GetDevilRoomChance() >= 1.0)))
-      elseif mod:isCorpseII(true) then
-        mod:spawnDevilRoomDoorSimple(false, not (mod.state.enableCorpseII and (mod.state.devilRoomSpawned or room:GetDevilRoomChance() >= 1.0)))
+      if mod:isBasementI(true) or
+         mod:isPreAscent(true) or
+         mod:isAscent(true) or
+         mod:isCorpseII(true) or
+         mod:isSheolOrCathedral(true) or
+         mod:isDarkRoomOrChest(true) or
+         mod:isTheVoid(true) or
+         mod:isHome(true)
+      then
+        mod:spawnDevilRoomDoor()
       elseif mod:isBlueWomb(true) and mod.state.enableBlueWomb then
         mod:spawnDevilRoomDoorBlueWomb()
-      elseif mod:isSheolOrCathedral(true) then
-        mod:spawnDevilRoomDoorSimple(false, not (mod.state.enableSheol and (mod.state.devilRoomSpawned or room:GetDevilRoomChance() >= 1.0)))
-      elseif mod:isDarkRoomOrChest(true) then
-        mod:spawnDevilRoomDoorSimple(false, not (mod.state.enableDarkRoom and (mod.state.devilRoomSpawned or room:GetDevilRoomChance() >= 1.0)))
-      elseif mod:isTheVoid(true) then
-        mod:spawnDevilRoomDoorSimple(false, not (mod.state.enableTheVoid and (mod.state.devilRoomSpawned or room:GetDevilRoomChance() >= 1.0)))
       end
     end
   end
@@ -112,29 +142,33 @@ end
 -- an alt implementation would involve hooking into MC_POST_UPDATE and constantly checking which is inefficient
 function mod:onPreSpawnAward()
   if not game:IsGreedMode() then
-    if mod:isBasementI(true) then
-      mod:spawnDevilRoomDoorSimple(true, not mod.state.enableBasementI)
-    elseif mod:isCorpseII(true) then
-      mod:spawnDevilRoomDoorSimple(true, not mod.state.enableCorpseII)
-    elseif mod:isSheolOrCathedral(true) then
-      mod:spawnDevilRoomDoorSimple(true, not mod.state.enableSheol)
-    elseif mod:isDarkRoomOrChest(true) then
-      mod:spawnDevilRoomDoorSimple(true, not mod.state.enableDarkRoom)
-    elseif mod:isTheVoid(true) then
-      mod:spawnDevilRoomDoorSimple(true, not mod.state.enableTheVoid)
+    if mod:isBasementI(true) or
+       mod:isCorpseII(true) or
+       mod:isSheolOrCathedral(true) or
+       mod:isDarkRoomOrChest(true) or
+       mod:isTheVoid(true)
+    then
+      mod:spawnDevilRoomDoor()
     end
   end
 end
 
-function mod:spawnDevilRoomDoorSimple(animate, forceFalse)
+function mod:spawnDevilRoomDoor()
   local level = game:GetLevel()
   local room = level:GetCurrentRoom()
   local rng = level:GetDevilAngelRoomRNG()
+  local stage = level:GetStage()
+  local animate = mod.state.devilRoomSpawned == nil
+  local chance = mod:getDevilRoomChance()
   
-  -- GetDevilRoomChance doesn't zero out on our custom floors, use a boolean to keep track of that
-  if not forceFalse then
-    if rng:RandomFloat() < room:GetDevilRoomChance() then
+  -- room:GetDevilRoomChance doesn't zero out on our custom floors, use a boolean to keep track of that
+  if chance > 0.0 then
+    if rng:RandomFloat() < chance then
       if room:TrySpawnDevilRoomDoor(animate, true) then
+        if mod:isPreAscent(false) or mod:isAscent(false) then
+          mod.state.lastDevilRoomStage = mod:isRepentanceStageType() and stage + 1 or stage
+        end
+        
         mod.state.devilRoomSpawned = true
         return
       end
@@ -159,41 +193,10 @@ function mod:spawnDevilRoomDoorBlueWomb()
     player:RemoveCollectible(CollectibleType.COLLECTIBLE_DUALITY, false, nil, true)
   end
   
-  local doors = mod:getDevilRoomDoors()
-  mod:updateDoorSprites(doors)
-end
-
---[[
-function mod:spawnDevilRoomDoorBlueWomb()
-  local level = game:GetLevel()
-  local room = level:GetCurrentRoom()
-  
-  local devilRoom = level:GetRoomByIdx(GridRooms.ROOM_DEVIL_IDX, -1)
-  local isDevilRoomConfigNil = devilRoom.Data == nil
-  
-  -- if the player has duality, 2 doors will spawn and the room config will be nil
-  -- otherwise, only 1 door will spawn and we'll need to nil out the room config
-  room:TrySpawnDevilRoomDoor(false, true)
-  
-  local doors = mod:getDevilRoomDoors()
-  
-  if isDevilRoomConfigNil then
-    if #doors < 2 then
-      room:TrySpawnDevilRoomDoor(false, true)
-      doors = mod:getDevilRoomDoors()
-    end
-    
-    devilRoom.Data = nil
-    
-    if #doors >= 2 then
-      doors[2].TargetRoomType = doors[1].TargetRoomType == RoomType.ROOM_DEVIL and RoomType.ROOM_ANGEL or RoomType.ROOM_DEVIL
-    end
-  end
-  
   -- the wrong door sprites load in this room
+  local doors = mod:getDevilRoomDoors()
   mod:updateDoorSprites(doors)
 end
---]]
 
 function mod:getDevilRoomDoors()
   local room = game:GetRoom()
@@ -234,6 +237,35 @@ function mod:hasCollectible(collectible)
   end
   
   return false
+end
+
+function mod:hasTv()
+  return #Isaac.FindByType(EntityType.ENTITY_GENERIC_PROP, 4, -1, false, false) > 0
+end
+
+function mod:getDevilRoomChance()
+  local room = game:GetRoom()
+  local chance = room:GetDevilRoomChance()
+  
+  if not game:IsGreedMode() then
+    if (mod.state.devilRoomSpawned == false and chance < 1.0) or
+       (not mod.state.enableBasementI and mod:isBasementI(false)) or
+       (not mod.state.enablePreAscent and mod:isPreAscent(false)) or
+       (not mod.state.enableAscent and mod:isAscent(false)) or
+       (not mod.state.enableCorpseII and mod:isCorpseII(false)) or
+       (not mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
+       (not mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
+       (not mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
+       (not mod.state.enableTheVoid and mod:isTheVoid(false)) or
+       (not mod.state.enableHome and mod:isHome(false))
+    then
+      chance = 0.0
+    elseif mod.state.enableBlueWomb and mod:isBlueWomb(false) then
+      chance = 1.0
+    end
+  end
+  
+  return chance
 end
 
 function mod:getCurrentDimension()
@@ -290,6 +322,24 @@ function mod:isPreAscent(checkRoom)
   if checkRoom then
     return levelCheck and
            room:IsCurrentRoomLastBoss()
+  end
+  
+  return levelCheck
+end
+
+-- starts in boss room, ends in starting room
+-- layout or red rooms can block devil doors here
+function mod:isAscent(checkRoom)
+  local level = game:GetLevel()
+  local stage = level:GetStage()
+  
+  local levelCheck = stage >= LevelStage.STAGE1_1 and stage <= LevelStage.STAGE3_2 and
+                     game:GetStateFlag(GameStateFlag.STATE_BACKWARDS_PATH)
+  
+  if checkRoom then
+    return levelCheck and
+           level:GetCurrentRoomIndex() == level:GetStartingRoomIndex() and
+           mod:getCurrentDimension() == 0
   end
   
   return levelCheck
@@ -383,6 +433,23 @@ function mod:isTheVoid(checkRoom)
   return levelCheck
 end
 
+-- dogma/beast (living room)
+function mod:isHome(checkRoom)
+  local level = game:GetLevel()
+  local room = level:GetCurrentRoom()
+  local stage = level:GetStage()
+  
+  local levelCheck = stage == LevelStage.STAGE8
+  
+  if checkRoom then
+    return levelCheck and
+           room:IsCurrentRoomLastBoss() and
+           not mod:hasTv() -- requires no auto-cutscenes mod
+  end
+  
+  return levelCheck
+end
+
 function mod:isRepentanceStageType()
   local level = game:GetLevel()
   local stageType = level:GetStageType()
@@ -404,13 +471,15 @@ function mod:setupModConfigMenu()
     ModConfigMenu.RemoveSubcategory(mod.Name, v)
   end
   for _, v in ipairs({
-                       { title = 'Basement I'       , field = 'enableBasementI', info = { 'Basement, Cellar, Burning Basement' } },
-                       { title = 'Mausoleum II'     , field = 'enablePreAscent', info = { 'Spawns with Dad\'s Note', 'Mausoleum, Gehenna' } },
-                       { title = 'Corpse II / XL'   , field = 'enableCorpseII' , info = { 'Spawns after defeating Mother' } },
-                       { title = '???'              , field = 'enableBlueWomb' , info = { 'Spawns in The Void room after defeating Hush', 'Duality + Goat Head effects enabled' } },
-                       { title = 'Sheol / Cathedral', field = 'enableSheol'    , info = { 'Spawns after defeating Satan or Isaac' } },
-                       { title = 'Dark Room / Chest', field = 'enableDarkRoom' , info = { 'Spawns after defeating The Lamb or ???' } },
-                       { title = 'The Void'         , field = 'enableTheVoid'  , info = { 'Spawns after defeating Delirium', 'Red rooms can block devil doors here' } }
+                       { stage = 'Basement I'       , field = 'enableBasementI', info = { 'Basement, Cellar, Burning Basement' } },
+                       { stage = 'Pre-Ascent'       , field = 'enablePreAscent', info = { 'Spawns with Dad\'s Note', 'Mausoleum, Gehenna' } },
+                       { stage = 'Ascent'           , field = 'enableAscent'   , info = { 'Spawns in the starting room with light beam', 'Backwards path: Mausoleum -> Basement' } },
+                       { stage = 'Corpse II / XL'   , field = 'enableCorpseII' , info = { 'Spawns after defeating Mother' } },
+                       { stage = '???'              , field = 'enableBlueWomb' , info = { 'Spawns in The Void room after defeating Hush', 'Duality + Goat Head effects enabled' } },
+                       { stage = 'Sheol / Cathedral', field = 'enableSheol'    , info = { 'Spawns after defeating Satan or Isaac' } },
+                       { stage = 'Dark Room / Chest', field = 'enableDarkRoom' , info = { 'Spawns after defeating The Lamb or ???' } },
+                       { stage = 'The Void'         , field = 'enableTheVoid'  , info = { 'Spawns after defeating Delirium' } },
+                       { stage = 'Home'             , field = 'enableHome'     , info = { 'Spawns in the living room after defeating', 'The Beast' } }
                     })
   do
     ModConfigMenu.AddSetting(
@@ -422,7 +491,7 @@ function mod:setupModConfigMenu()
           return mod.state[v.field]
         end,
         Display = function()
-          return v.title .. ' : ' .. (mod.state[v.field] and 'on' or 'off')
+          return v.stage .. ' : ' .. (mod.state[v.field] and 'on' or 'off')
         end,
         OnChange = function(b)
           mod.state[v.field] = b
@@ -441,27 +510,7 @@ function mod:setupModConfigMenu()
         return false
       end,
       Display = function()
-        local level = game:GetLevel()
-        local room = level:GetCurrentRoom()
-        local stage = level:GetStage()
-        local chance = room:GetDevilRoomChance()
-        if not game:IsGreedMode() then
-          if (mod.state.devilRoomSpawned == false and chance < 1.0) or
-             (not mod.state.enableBasementI and mod:isBasementI(false)) or
-             (not mod.state.enablePreAscent and mod:isPreAscent(false)) or
-             (not mod.state.enableCorpseII and mod:isCorpseII(false)) or
-             (not mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
-             (not mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
-             (not mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
-             (not mod.state.enableTheVoid and mod:isTheVoid(false)) or
-             (stage >= LevelStage.STAGE1_1 and stage <= LevelStage.STAGE3_2 and game:GetStateFlag(GameStateFlag.STATE_BACKWARDS_PATH)) or -- ascent
-             stage == LevelStage.STAGE8 -- home
-          then
-            chance = 0.0
-          elseif mod.state.enableBlueWomb and mod:isBlueWomb(false) then
-            chance = 1.0
-          end
-        end
+        local chance = mod:getDevilRoomChance()
         return string.format('Devil + Angel room chance: %.1f%%', math.min(chance, 1.0) * 100.0)
       end,
       OnChange = function(b)
@@ -475,6 +524,7 @@ end
 
 mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, mod.onGameStart)
 mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, mod.onGameExit)
+mod:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, mod.onNewLevel)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
 mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, mod.onPreSpawnAward)
 
