@@ -401,13 +401,15 @@ end
 function mod:isDarkRoomOrChest(checkRoom)
   local level = game:GetLevel()
   local room = level:GetCurrentRoom()
+  local roomDesc = level:GetCurrentRoomDesc()
   local stage = level:GetStage()
   
   local levelCheck = stage == LevelStage.STAGE6
   
   if checkRoom then
     return levelCheck and
-           room:IsCurrentRoomLastBoss()
+           room:IsCurrentRoomLastBoss() and -- this can be mega satan in some challenges
+           roomDesc.GridIndex >= 0          -- which we don't want, check for grid index
   end
   
   return levelCheck
