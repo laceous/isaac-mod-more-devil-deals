@@ -25,7 +25,7 @@ In the Ascent, Devil Deals will spawn in the starting room rather than the boss 
 Home requires the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2908633985]No Auto-Cutscenes[/url] mod. Any Devil Deals will show up in the living room after you defeat The Beast.
 
 Mod Config Menu can be used to enable or disable specific stages.</description>
-    <version>1.4</version>
+    <version>1.5</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Rooms"/>

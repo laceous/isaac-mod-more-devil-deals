@@ -87,9 +87,11 @@ function mod:onNewLevel()
   if not game:IsGreedMode() then
     mod.state.devilRoomSpawned = nil
     
+    local level = game:GetLevel()
+    local room = level:GetCurrentRoom()
+    
     if mod:isPreAscent(false) or mod:isAscent(false) then
       if mod.state.lastDevilRoomStage > LevelStage.STAGE_NULL then
-        local level = game:GetLevel()
         local stage = level:GetStage()
         if mod:isRepentanceStageType() then
           stage = stage + 1
@@ -105,6 +107,16 @@ function mod:onNewLevel()
         
         -- otherwise we get 100% on every floor in the ascent which feels cheap
         game:SetLastDevilRoomStage(lastDevilRoomStage)
+      else
+        local chance = room:GetDevilRoomChance()
+        
+        if chance >= 1.0 then
+          mod.state.lastDevilRoomStage = LevelStage.STAGE3_2 + 3
+        elseif chance >= 0.67 then
+          mod.state.lastDevilRoomStage = LevelStage.STAGE3_2 + 2
+        else -- 0.33
+          mod.state.lastDevilRoomStage = LevelStage.STAGE3_2 + 1 -- mausoleum ii
+        end
       end
     else
       mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
@@ -131,7 +143,7 @@ function mod:onNewRoom()
          mod:isHome(true)
       then
         mod:spawnDevilRoomDoor()
-      elseif mod:isBlueWomb(true) and mod.state.enableBlueWomb then
+      elseif mod:isBlueWomb(true) then
         mod:spawnDevilRoomDoorBlueWomb()
       end
     end
@@ -181,21 +193,32 @@ end
 function mod:spawnDevilRoomDoorBlueWomb()
   local room = game:GetRoom()
   local player = game:GetPlayer(0)
-  local hasDuality = mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY)
+  local animate = mod.state.devilRoomSpawned == nil
+  local chance = mod:getDevilRoomChance()
   
-  if not hasDuality then
-    player:AddCollectible(CollectibleType.COLLECTIBLE_DUALITY, 0, false, nil, 0)
+  if chance >= 1.0 then -- 0 or 1
+    local hasDuality = mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY)
+    
+    if not hasDuality then
+      player:AddCollectible(CollectibleType.COLLECTIBLE_DUALITY, 0, false, nil, 0)
+    end
+    
+    if room:TrySpawnDevilRoomDoor(animate, true) then
+      -- the wrong door sprites load in this room
+      local doors = mod:getDevilRoomDoors()
+      mod:updateDoorSprites(doors)
+      
+      mod.state.devilRoomSpawned = true
+    end
+    
+    if not hasDuality then
+      player:RemoveCollectible(CollectibleType.COLLECTIBLE_DUALITY, false, nil, true)
+    end
+    
+    return
   end
   
-  room:TrySpawnDevilRoomDoor(false, true)
-  
-  if not hasDuality then
-    player:RemoveCollectible(CollectibleType.COLLECTIBLE_DUALITY, false, nil, true)
-  end
-  
-  -- the wrong door sprites load in this room
-  local doors = mod:getDevilRoomDoors()
-  mod:updateDoorSprites(doors)
+  mod.state.devilRoomSpawned = false
 end
 
 function mod:getDevilRoomDoors()
