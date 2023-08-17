@@ -203,19 +203,20 @@ function mod:spawnDevilRoomDoorBlueWomb()
       player:AddCollectible(CollectibleType.COLLECTIBLE_DUALITY, 0, false, nil, 0)
     end
     
-    if room:TrySpawnDevilRoomDoor(animate, true) then
-      -- the wrong door sprites load in this room
-      local doors = mod:getDevilRoomDoors()
-      mod:updateDoorSprites(doors)
-      
-      mod.state.devilRoomSpawned = true
-    end
+    local spawned = room:TrySpawnDevilRoomDoor(animate, true)
     
     if not hasDuality then
       player:RemoveCollectible(CollectibleType.COLLECTIBLE_DUALITY, false, nil, true)
     end
     
-    return
+    if spawned then
+      -- the wrong door sprites load in this room
+      local doors = mod:getDevilRoomDoors()
+      mod:updateDoorSprites(doors)
+      
+      mod.state.devilRoomSpawned = true
+      return
+    end
   end
   
   mod.state.devilRoomSpawned = false
@@ -271,7 +272,9 @@ function mod:getDevilRoomChance()
   local chance = room:GetDevilRoomChance()
   
   if not game:IsGreedMode() then
-    if (mod.state.devilRoomSpawned == false and chance < 1.0) or -- goat head / eucharist
+    if mod.state.enableBlueWomb and mod:isBlueWomb(false) then
+      chance = 1.0
+    elseif (mod.state.devilRoomSpawned == false and chance < 1.0) or -- goat head / eucharist
        (not mod.state.enableBasementI and mod:isBasementI(false)) or
        (not mod.state.enablePreAscent and mod:isPreAscent(false)) or
        (not mod.state.enableAscent and mod:isAscent(false)) or
@@ -283,8 +286,6 @@ function mod:getDevilRoomChance()
        (not mod.state.enableHome and mod:isHome(false))
     then
       chance = 0.0
-    elseif mod.state.enableBlueWomb and mod:isBlueWomb(false) then
-      chance = 1.0
     end
   end
   
