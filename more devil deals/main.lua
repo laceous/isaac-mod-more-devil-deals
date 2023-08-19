@@ -275,15 +275,15 @@ function mod:getDevilRoomChance()
     if mod.state.enableBlueWomb and mod:isBlueWomb(false) then
       chance = 1.0
     elseif (mod.state.devilRoomSpawned == false and chance < 1.0) or -- goat head / eucharist
-       (not mod.state.enableBasementI and mod:isBasementI(false)) or
-       (not mod.state.enablePreAscent and mod:isPreAscent(false)) or
-       (not mod.state.enableAscent and mod:isAscent(false)) or
-       (not mod.state.enableCorpseII and mod:isCorpseII(false)) or
-       (not mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
-       (not mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
-       (not mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
-       (not mod.state.enableTheVoid and mod:isTheVoid(false)) or
-       (not mod.state.enableHome and mod:isHome(false))
+           (not mod.state.enableBasementI and mod:isBasementI(false)) or
+           (not mod.state.enablePreAscent and mod:isPreAscent(false)) or
+           (not mod.state.enableAscent and mod:isAscent(false)) or
+           (not mod.state.enableCorpseII and mod:isCorpseII(false)) or
+           (not mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
+           (not mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
+           (not mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
+           (not mod.state.enableTheVoid and mod:isTheVoid(false)) or
+           (not mod.state.enableHome and mod:isHome(false))
     then
       chance = 0.0
     end
