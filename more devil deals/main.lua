@@ -225,27 +225,29 @@ function mod:getTextCoords()
     local player = game:GetPlayer(i)
     local playerType = player:GetPlayerType()
     
-    if player.Parent == nil then
-      if playerType == PlayerType.PLAYER_BLUEBABY_B then
-        poopShift = true
-      else
-        bombShift = true
-        
-        if playerType == PlayerType.PLAYER_BETHANY then
-          blueHeartShift = true
-        elseif playerType == PlayerType.PLAYER_BETHANY_B then
-          redHeartShift = true
-        end
-      end
+    if playerType == PlayerType.PLAYER_BLUEBABY_B then
+      poopShift = true
+    else
+      bombShift = true
       
-      if i == 0 then
-        if playerType == PlayerType.PLAYER_JACOB then
-          jacobShift = true
-        end
-      elseif i > 0 then
-        if player:GetBabySkin() == BabySubType.BABY_UNASSIGNED then
-          trueCoopShift = true
-        end
+      if playerType == PlayerType.PLAYER_BETHANY then
+        blueHeartShift = true
+      elseif playerType == PlayerType.PLAYER_BETHANY_B then
+        redHeartShift = true
+      end
+    end
+    
+    if i == 0 then
+      if playerType == PlayerType.PLAYER_JACOB then
+        jacobShift = true
+      end
+    elseif i > 0 then
+      -- not child, not co-op baby
+      -- it's possible for a player to initially not be a child and then be changed to a child later on
+      -- the game will still show the true co-op ui in that case, that's an edge case we're not checking for here
+      -- you can quit/continue to fix the visual glitch
+      if player.Parent == nil and player:GetBabySkin() == BabySubType.BABY_UNASSIGNED then
+        trueCoopShift = true
       end
     end
   end
