@@ -9,7 +9,8 @@ mod.font:Load('font/luaminioutlined.fnt')
 
 mod.state = {}
 mod.state.devilRoomSpawned = nil -- 3 state: nil, false, true; likely edge case w/ glowing hourglass going back a floor
-mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL -- ascent, room:GetLastDevilRoomStage doesn't work
+mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL -- room:GetLastDevilRoomStage doesn't work
+mod.state.lastStage = LevelStage.STAGE_NULL
 mod.state.enableBasementI = true
 mod.state.enablePreAscent = false
 mod.state.enableAscent = false
@@ -30,8 +31,10 @@ function mod:onGameStart(isContinue)
         if type(state.devilRoomSpawned) == 'boolean' then
           mod.state.devilRoomSpawned = state.devilRoomSpawned
         end
-        if math.type(state.lastDevilRoomStage) == 'integer' and state.lastDevilRoomStage >= LevelStage.STAGE_NULL and state.lastDevilRoomStage < LevelStage.NUM_STAGES then
-          mod.state.lastDevilRoomStage = state.lastDevilRoomStage
+        for _, v in ipairs({ 'lastDevilRoomStage', 'lastStage' }) do
+          if math.type(state[v]) == 'integer' and math.abs(state[v]) >= LevelStage.STAGE_NULL and math.abs(state[v]) < LevelStage.NUM_STAGES then
+            mod.state[v] = state[v]
+          end
         end
       end
       for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome', 'foundHudIntegration' }) do
@@ -50,9 +53,11 @@ function mod:onGameExit(shouldSave)
   if shouldSave then
     mod:save()
     mod.state.devilRoomSpawned = nil
+    mod.state.lastStage = LevelStage.STAGE_NULL
     mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
   else
     mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
+    mod.state.lastStage = LevelStage.STAGE_NULL
     mod.state.devilRoomSpawned = nil
     mod:save()
   end
@@ -88,44 +93,68 @@ function mod:save(settingsOnly)
 end
 
 -- onNewLevel runs after onNewRoom, but we don't do anything in onNewRoom in the first room of the floor, so this is ok
+-- onNewLevel runs before onGameStart, but that should be ok for our use cases
 function mod:onNewLevel()
   if not game:IsGreedMode() then
-    mod.state.devilRoomSpawned = nil
-    
     local level = game:GetLevel()
-    local room = level:GetCurrentRoom()
+    local stage = level:GetStage()
+    if mod:isRepentanceStageType() then
+      stage = stage + 1
+    end
     
-    if mod:isPreAscent(false) or mod:isAscent(false) then
-      if mod.state.lastDevilRoomStage > LevelStage.STAGE_NULL then
-        local stage = level:GetStage()
-        if mod:isRepentanceStageType() then
-          stage = stage + 1
-        end
-        
-        -- edge case: STAGE_NULL (0) always gives 100%
-        -- positive and negative numbers work as expected
-        local diff = math.abs(mod.state.lastDevilRoomStage - stage)
-        local lastDevilRoomStage = stage - diff
-        if lastDevilRoomStage == LevelStage.STAGE_NULL and diff < 3 then -- 33, 67, 100
-          lastDevilRoomStage = lastDevilRoomStage + 1
-        end
-        
-        -- otherwise we get 100% on every floor in the ascent which feels cheap
-        game:SetLastDevilRoomStage(lastDevilRoomStage)
-      else
-        local chance = room:GetDevilRoomChance()
-        
-        if chance >= 1.0 then
-          mod.state.lastDevilRoomStage = LevelStage.STAGE3_2 + 3
-        elseif chance >= 0.67 then
-          mod.state.lastDevilRoomStage = LevelStage.STAGE3_2 + 2
-        else -- 0.33
-          mod.state.lastDevilRoomStage = LevelStage.STAGE3_2 + 1 -- mausoleum ii
+    --  1 = basement i
+    --  2 = basement ii
+    --  3 = caves i
+    --  4 = caves ii
+    --  5 = depths i
+    --  6 = depths ii
+    --  7 = mausoleum ii (dad's note)
+    -- -7 = mausoleum ii (ascent)
+    -- -6 = depths ii (ascent)
+    -- -5 = depths i (ascent)
+    -- -4 = caves ii (ascent)
+    -- -3 = caves i (ascent)
+    -- -2 = basement ii (ascent)
+    -- -1 = basement i (ascent)
+    local ascentStages = { 1, 2, 3, 4, 5, 6, 7, -7, -6, -5, -4, -3, -2, -1 }
+    
+    if mod:isAscent(false) then
+      -- deal with going backwards, otherwise we get 100% on every floor in the ascent
+      stage = stage * -1
+      
+      if mod:tblHasVal(ascentStages, mod.state.lastDevilRoomStage) then
+        local diff = mod:walkDiff(ascentStages, mod.state.lastDevilRoomStage, stage)
+        if diff > 0 then
+          local lastDevilRoomStage = math.abs(stage) - diff
+          -- edge case: 0 (STAGE_NULL) always gives 100%
+          -- positive and negative numbers work as expected
+          if lastDevilRoomStage == 0 and diff < 3 then -- 33, 67, 100
+            lastDevilRoomStage = lastDevilRoomStage + 1 -- if 67: give 33 instead of 100
+          end
+          game:SetLastDevilRoomStage(lastDevilRoomStage)
         end
       end
-    else
-      mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
+    elseif mod:isHome(false) then
+      -- deal with going from STAGE1_1 to STAGE8, end path for the ascent, otherwise it'll always be 100%
+      if mod.state.lastStage == -1 and mod:tblHasVal(ascentStages, mod.state.lastDevilRoomStage) then
+        local diff = mod:walkDiff(ascentStages, mod.state.lastDevilRoomStage, mod.state.lastStage)
+        if diff >= 0 then
+          game:SetLastDevilRoomStage(stage - (diff + 1))
+        end
+      end
+    elseif mod:isSheolOrCathedral(false) then
+      -- deal with skipping STAGE4_3 (which is common)
+      -- going from the womb to the cathedral can give 67 when 33 makes more sense since the blue womb is optional
+      if mod.state.lastStage == stage - 2 and mod.state.lastDevilRoomStage > 0 and mod.state.lastDevilRoomStage <= stage - 2 then
+        game:SetLastDevilRoomStage(mod.state.lastDevilRoomStage + 1)
+      end
+    elseif mod:isTheVoid(false) then
+      -- guarantee non-guaranteed 100% in the void (you can still take red heart damage)
+      game:SetLastDevilRoomStage(LevelStage.STAGE_NULL)
     end
+    
+    mod.state.devilRoomSpawned = nil
+    mod.state.lastStage = stage
   end
 end
 
@@ -170,8 +199,23 @@ function mod:onPreSpawnAward()
   end
 end
 
+function mod:onUpdate()
+  if mod:hasDevilRoomDoor() then
+    local level = game:GetLevel()
+    local stage = level:GetStage()
+    if mod:isRepentanceStageType() then
+      stage = stage + 1
+    end
+    if mod:isAscent(false) then
+      stage = stage * -1
+    end
+    
+    mod.state.lastDevilRoomStage = stage
+  end
+end
+
 function mod:onRender()
-  if not mod.onGameStartHasRun or not mod.state.foundHudIntegration then
+  if not mod.state.foundHudIntegration then
     return
   end
   
@@ -326,10 +370,6 @@ function mod:spawnDevilRoomDoor()
   if chance > 0.0 then
     if rng:RandomFloat() < chance then
       if room:TrySpawnDevilRoomDoor(animate, true) then
-        if mod:isPreAscent(false) or mod:isAscent(false) then
-          mod.state.lastDevilRoomStage = mod:isRepentanceStageType() and stage + 1 or stage
-        end
-        
         mod.state.devilRoomSpawned = true
         return
       end
@@ -360,8 +400,7 @@ function mod:spawnDevilRoomDoorBlueWomb()
     
     if spawned then
       -- the wrong door sprites load in this room
-      local doors = mod:getDevilRoomDoors()
-      mod:updateDoorSprites(doors)
+      mod:updateDevilDoorSprites()
       
       mod.state.devilRoomSpawned = true
       return
@@ -371,31 +410,36 @@ function mod:spawnDevilRoomDoorBlueWomb()
   mod.state.devilRoomSpawned = false
 end
 
-function mod:getDevilRoomDoors()
+function mod:hasDevilRoomDoor()
   local room = game:GetRoom()
-  local doors = {}
   
   for i = 0, DoorSlot.NUM_DOOR_SLOTS - 1 do
     local door = room:GetDoor(i)
     
     if door and door.TargetRoomIndex == GridRooms.ROOM_DEVIL_IDX then
-      table.insert(doors, door)
+      return true
     end
   end
   
-  return doors
+  return false
 end
 
-function mod:updateDoorSprites(doors)
-  for _, door in ipairs(doors) do
-    local sprite = door:GetSprite()
+function mod:updateDevilDoorSprites()
+  local room = game:GetRoom()
+  
+  for i = 0, DoorSlot.NUM_DOOR_SLOTS - 1 do
+    local door = room:GetDoor(i)
     
-    if door.TargetRoomType == RoomType.ROOM_DEVIL then
-      sprite:Load('gfx/grid/door_07_devilroomdoor.anm2', true)
-      sprite:Play('Opened', true)
-    elseif door.TargetRoomType == RoomType.ROOM_ANGEL then
-      sprite:Load('gfx/grid/door_07_holyroomdoor.anm2', true)
-      sprite:Play('Opened', true)
+    if door and door.TargetRoomIndex == GridRooms.ROOM_DEVIL_IDX then
+      local sprite = door:GetSprite()
+      
+      if door.TargetRoomType == RoomType.ROOM_DEVIL then
+        sprite:Load('gfx/grid/door_07_devilroomdoor.anm2', true)
+        sprite:Play('Opened', true)
+      elseif door.TargetRoomType == RoomType.ROOM_ANGEL then
+        sprite:Load('gfx/grid/door_07_holyroomdoor.anm2', true)
+        sprite:Play('Opened', true)
+      end
     end
   end
 end
@@ -439,6 +483,35 @@ function mod:getDevilRoomChance()
   end
   
   return chance
+end
+
+function mod:tblHasVal(tbl, val)
+  for _, v in ipairs(tbl) do
+    if v == val then
+      return true
+    end
+  end
+  
+  return false
+end
+
+function mod:walkDiff(tbl, val1, val2)
+  local i1, i2
+  
+  for i, v in ipairs(tbl) do
+    if v == val1 then
+      i1 = i
+    end
+    if v == val2 then
+      i2 = i
+    end
+  end
+  
+  if i1 and i2 then
+    return i2 - i1
+  end
+  
+  return -1
 end
 
 function mod:getCurrentDimension()
@@ -672,7 +745,7 @@ function mod:setupModConfigMenu()
                        { stage = '???'              , field = 'enableBlueWomb' , info = { 'Spawns in The Void room after defeating Hush', 'Duality + Goat Head effects enabled' } },
                        { stage = 'Sheol / Cathedral', field = 'enableSheol'    , info = { 'Spawns after defeating Satan or Isaac' } },
                        { stage = 'Dark Room / Chest', field = 'enableDarkRoom' , info = { 'Spawns after defeating The Lamb or ???' } },
-                       { stage = 'The Void'         , field = 'enableTheVoid'  , info = { 'Spawns after defeating Delirium' } },
+                       { stage = 'The Void'         , field = 'enableTheVoid'  , info = { 'Spawns after defeating Delirium', 'Start with 100% chance' } },
                        { stage = 'Home'             , field = 'enableHome'     , info = { 'Spawns in the living room after defeating', 'The Beast' } }
                     })
   do
@@ -739,6 +812,7 @@ mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, mod.onGameExit)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, mod.onNewLevel)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
 mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, mod.onPreSpawnAward)
+mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 
 if ModConfigMenu then

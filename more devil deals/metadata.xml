@@ -20,12 +20,14 @@ Normal RNG should apply. It won't show the percentages in the UI though.
 
 Fighting Hush doesn't yield much of a reward outside of a guaranteed path to The Void. This mod gives you more incentive to go that way by giving you a guaranteed Devil or Angel deal once you defeat Hush. Simply walk into The Void room and you'll be presented with both options. No Duality or Goat Head required.
 
+In The Void, you'll start the floor with 100%, but it's not guaranteed. You can still lose your Devil Deal due to red heart damage.
+
 In the Ascent, Devil Deals will spawn in the starting room rather than the boss room since you start in the boss room. There's usually available door slots here, but depending on layout + red rooms there might not be. The same door slot logic applies to boss rooms in The Void.
 
 Home requires the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2908633985]No Auto-Cutscenes[/url] mod. Any Devil Deals will show up in the living room after you defeat The Beast.
 
 Mod Config Menu can be used to enable or disable specific stages. You can also enable Found HUD integration.</description>
-    <version>1.9</version>
+    <version>1.10</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Rooms"/>
