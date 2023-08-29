@@ -560,6 +560,7 @@ function mod:isPreAscent(checkRoom)
   local room = level:GetCurrentRoom()
   local stage = level:GetStage()
   
+  -- level:IsPreAscent
   local levelCheck = (stage == LevelStage.STAGE3_2 or (mod:isCurseOfTheLabyrinth() and stage == LevelStage.STAGE3_1)) and
                      mod:isRepentanceStageType() and
                      game:GetStateFlag(GameStateFlag.STATE_BACKWARDS_PATH_INIT) and
@@ -579,6 +580,7 @@ function mod:isAscent(checkRoom)
   local level = game:GetLevel()
   local stage = level:GetStage()
   
+  -- level:IsAscent
   local levelCheck = stage >= LevelStage.STAGE1_1 and stage <= LevelStage.STAGE3_2 and
                      game:GetStateFlag(GameStateFlag.STATE_BACKWARDS_PATH)
   
