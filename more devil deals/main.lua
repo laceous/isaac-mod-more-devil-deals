@@ -144,8 +144,10 @@ function mod:onNewLevel()
       end
     elseif mod:isSheolOrCathedral(false) then
       -- deal with skipping STAGE4_3 (which is common)
-      -- going from the womb to the cathedral can give 67 when 33 makes more sense since the blue womb is optional
-      if mod.state.lastStage == stage - 2 and mod.state.lastDevilRoomStage > 0 and mod.state.lastDevilRoomStage <= stage - 2 then
+      -- going from the womb ii to the cathedral can give 67 when 33 makes more sense since the blue womb is optional
+      if (mod.state.lastStage == stage - 2 and mod.state.lastDevilRoomStage > 0 and mod.state.lastDevilRoomStage <= stage - 2) or -- womb ii
+         (mod.state.lastStage == stage - 3 and mod.state.lastDevilRoomStage > 0 and mod.state.lastDevilRoomStage <= stage - 3)    -- womb xl
+      then
         game:SetLastDevilRoomStage(mod.state.lastDevilRoomStage + 1)
       end
     elseif mod:isTheVoid(false) then
