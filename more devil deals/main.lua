@@ -317,7 +317,7 @@ function mod:getTextCoords()
       coords = coords + Vector(0, 12)
     end
   end
-  if game.Difficulty == Difficulty.DIFFICULTY_HARD or                  -- hard mode
+  if game.Difficulty == Difficulty.DIFFICULTY_HARD or                  -- hard mode / victory laps
      seeds:IsCustomRun() or                                            -- challenge or seeded run
      Isaac.GetChallenge() ~= Challenge.CHALLENGE_NULL or               -- secondary challenge check
      seeds:HasSeedEffect(SeedEffect.SEED_INFINITE_BASEMENT) or         -- infinite basements
