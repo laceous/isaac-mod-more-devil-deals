@@ -7,6 +7,8 @@ mod.onGameStartHasRun = false
 mod.font = Font()
 mod.font:Load('font/luaminioutlined.fnt')
 
+mod.devilAngelRoomStartOptions = { 'default', 'angel', '50/50' }
+
 mod.state = {}
 mod.state.devilRoomSpawned = nil -- 3 state: nil, false, true; likely edge case w/ glowing hourglass going back a floor
 mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL -- room:GetLastDevilRoomStage doesn't work
@@ -21,6 +23,7 @@ mod.state.enableDarkRoom = true -- chest
 mod.state.enableTheVoid = true
 mod.state.enableHome = true
 mod.state.foundHudIntegration = false
+mod.state.devilAngelRoomStart = 'default'
 
 function mod:onGameStart(isContinue)
   if mod:HasData() then
@@ -42,7 +45,14 @@ function mod:onGameStart(isContinue)
           mod.state[v] = state[v]
         end
       end
+      if type(state.devilAngelRoomStart) == 'string' and mod:getTblIdx(mod.devilAngelRoomStartOptions, state.devilAngelRoomStart) > 0 then
+        mod.state.devilAngelRoomStart = state.devilAngelRoomStart
+      end
     end
+  end
+  
+  if not isContinue then
+    mod:setDevilAngelRoomStart()
   end
   
   mod.onGameStartHasRun = true
@@ -85,6 +95,7 @@ function mod:save(settingsOnly)
     state.enableTheVoid = mod.state.enableTheVoid
     state.enableHome = mod.state.enableHome
     state.foundHudIntegration = mod.state.foundHudIntegration
+    state.devilAngelRoomStart = mod.state.devilAngelRoomStart
     
     mod:SaveData(json.encode(state))
   else
@@ -358,6 +369,19 @@ function mod:getTextCoords()
   end
   
   return coords + game.ScreenShakeOffset + (Options.HUDOffset * Vector(20, 12))
+end
+
+function mod:setDevilAngelRoomStart()
+  if mod.state.devilAngelRoomStart == 'angel' then
+    game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_SPAWNED, true)
+    game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_VISITED, false)
+  elseif mod.state.devilAngelRoomStart == '50/50' then
+    game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_SPAWNED, true)
+    game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_VISITED, true)
+  else -- default
+    --game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_SPAWNED, false)
+    --game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_VISITED, false)
+  end
 end
 
 function mod:spawnDevilRoomDoor()
@@ -736,6 +760,16 @@ function mod:isCurseOfTheLabyrinth()
   return curses & curse == curse
 end
 
+function mod:getTblIdx(tbl, val)
+  for i, v in ipairs(tbl) do
+    if v == val then
+      return i
+    end
+  end
+  
+  return 0
+end
+
 -- start ModConfigMenu --
 function mod:setupModConfigMenu()
   for _, v in ipairs({ 'Stages', 'Debug' }) do
@@ -806,6 +840,27 @@ function mod:setupModConfigMenu()
         mod:save(true)
       end,
       Info = { 'Requires found hud to be enabled', 'in the options menu' }
+    }
+  )
+  ModConfigMenu.AddSpace(mod.Name, 'Debug')
+  ModConfigMenu.AddSetting(
+    mod.Name,
+    'Debug',
+    {
+      Type = ModConfigMenu.OptionType.NUMBER,
+      CurrentSetting = function()
+        return mod:getTblIdx(mod.devilAngelRoomStartOptions, mod.state.devilAngelRoomStart)
+      end,
+      Minimum = 1,
+      Maximum = #mod.devilAngelRoomStartOptions,
+      Display = function()
+        return 'Devil or angel room start: ' .. mod.state.devilAngelRoomStart
+      end,
+      OnChange = function(n)
+        mod.state.devilAngelRoomStart = mod.devilAngelRoomStartOptions[n]
+        mod:save(true)
+      end,
+      Info = { 'Default (devil), angel, or 50/50', 'This will be applied to your next run' }
     }
   )
 end
