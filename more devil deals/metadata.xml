@@ -32,7 +32,7 @@ Mod Config Menu can be used to:
     [*]enable Found HUD integration
     [*]choose your starting devil room type: default (devil), angel, or 50/50
 [/list]</description>
-    <version>1.14</version>
+    <version>1.15</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Rooms"/>

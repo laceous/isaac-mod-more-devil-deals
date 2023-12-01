@@ -356,7 +356,10 @@ function mod:getTextCoords()
      seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CHARMED_AND_AFRAID) or -- asocial enemies
      seeds:HasSeedEffect(SeedEffect.SEED_SUPER_HOT) or                 -- super hot
      seeds:HasSeedEffect(SeedEffect.SEED_G_FUEL) or                    -- g fuel!
-     not itemConfg:GetCollectible(CollectibleType.COLLECTIBLE_CUBE_OF_MEAT):IsAvailable() -- has mom been defeated?
+     not (                                                             -- has mom been defeated?
+           itemConfg:GetCollectible(CollectibleType.COLLECTIBLE_CUBE_OF_MEAT):IsAvailable() or
+           itemConfg:GetCollectible(CollectibleType.COLLECTIBLE_BALL_OF_BANDAGES):IsAvailable()
+         )
   then
     coords = coords + Vector(0, 16)
   end
