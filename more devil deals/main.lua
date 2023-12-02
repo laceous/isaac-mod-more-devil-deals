@@ -267,7 +267,6 @@ end
 -- thanks to planetarium chance for help figuring some of this out
 function mod:getTextCoords()
   local seeds = game:GetSeeds()
-  local itemConfg = Isaac.GetItemConfig()
   local coords = Vector(35, 145) -- default w/ bombShift
   
   local shiftCount = 0
@@ -356,10 +355,7 @@ function mod:getTextCoords()
      seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CHARMED_AND_AFRAID) or -- asocial enemies
      seeds:HasSeedEffect(SeedEffect.SEED_SUPER_HOT) or                 -- super hot
      seeds:HasSeedEffect(SeedEffect.SEED_G_FUEL) or                    -- g fuel!
-     not (                                                             -- has mom been defeated?
-           itemConfg:GetCollectible(CollectibleType.COLLECTIBLE_CUBE_OF_MEAT):IsAvailable() or
-           itemConfg:GetCollectible(CollectibleType.COLLECTIBLE_BALL_OF_BANDAGES):IsAvailable()
-         )
+     not mod:hasMomBeenDefeated()                                      -- has mom been defeated?
   then
     coords = coords + Vector(0, 16)
   end
@@ -372,6 +368,21 @@ function mod:getTextCoords()
   end
   
   return coords + game.ScreenShakeOffset + (Options.HUDOffset * Vector(20, 12))
+end
+
+-- cube of meat/ball of bandages/harbingers are available after defeating mom
+-- genesis/sacred orb can make cube of meat/ball of bandages unavailable
+-- book of revelations is available after defeating a harbinger
+function mod:hasMomBeenDefeated()
+  local itemConfig = Isaac.GetItemConfig()
+  
+  for _, v in ipairs({ CollectibleType.COLLECTIBLE_BOOK_OF_REVELATIONS, CollectibleType.COLLECTIBLE_CUBE_OF_MEAT, CollectibleType.COLLECTIBLE_BALL_OF_BANDAGES }) do
+    if itemConfig:GetCollectible(v):IsAvailable() then
+      return true
+    end
+  end
+  
+  return false
 end
 
 function mod:setDevilAngelRoomStart()
