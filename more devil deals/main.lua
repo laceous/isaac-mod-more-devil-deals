@@ -213,7 +213,7 @@ function mod:onPreSpawnAward()
 end
 
 function mod:onUpdate()
-  if mod:hasDevilRoomDoor() then
+  if not game:IsGreedMode() and mod:hasDevilRoomDoor() then
     local level = game:GetLevel()
     local stage = level:GetStage()
     if mod:isRepentanceStageType() then
@@ -535,6 +535,16 @@ function mod:tblHasVal(tbl, val)
   return false
 end
 
+function mod:getTblIdx(tbl, val)
+  for i, v in ipairs(tbl) do
+    if v == val then
+      return i
+    end
+  end
+  
+  return 0
+end
+
 function mod:walkDiff(tbl, val1, val2)
   local i1, i2
   
@@ -772,16 +782,6 @@ function mod:isCurseOfTheLabyrinth()
   local curse = LevelCurse.CURSE_OF_LABYRINTH
   
   return curses & curse == curse
-end
-
-function mod:getTblIdx(tbl, val)
-  for i, v in ipairs(tbl) do
-    if v == val then
-      return i
-    end
-  end
-  
-  return 0
 end
 
 -- start ModConfigMenu --
