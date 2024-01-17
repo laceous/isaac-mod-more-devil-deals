@@ -355,7 +355,7 @@ function mod:getTextCoords()
      seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CHARMED_AND_AFRAID) or -- asocial enemies
      seeds:HasSeedEffect(SeedEffect.SEED_SUPER_HOT) or                 -- super hot
      seeds:HasSeedEffect(SeedEffect.SEED_G_FUEL) or                    -- g fuel!
-     not mod:hasMomBeenDefeated()                                      -- has mom been defeated?
+     (not REPENTOGON and not mod:hasMomBeenDefeated())                 -- has mom been defeated?
   then
     coords = coords + Vector(0, 16)
   end
