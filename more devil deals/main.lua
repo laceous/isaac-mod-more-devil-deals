@@ -590,10 +590,10 @@ function mod:getDevilAngelRoomChance()
     if level:GetStateFlag(LevelStateFlag.STATE_EVIL_BUM_KILLED) then
       devilRoomChance = devilRoomChance * (1.0 - 0.25)
     end
-    if level:GetStateFlag(LevelStateFlag.STATE_BUM_LEFT) then
+    if level:GetStateFlag(LevelStateFlag.STATE_BUM_LEFT) and not level:GetStateFlag(LevelStateFlag.STATE_EVIL_BUM_LEFT) then
       devilRoomChance = devilRoomChance * (1.0 - 0.1)
     end
-    if level:GetStateFlag(LevelStateFlag.STATE_EVIL_BUM_LEFT) then
+    if level:GetStateFlag(LevelStateFlag.STATE_EVIL_BUM_LEFT) and not level:GetStateFlag(LevelStateFlag.STATE_BUM_LEFT) then
       devilRoomChance = devilRoomChance * (1.0 + 0.1)
     end
     if level:GetAngelRoomChance() > 0.0 or
