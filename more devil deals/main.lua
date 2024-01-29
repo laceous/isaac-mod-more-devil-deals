@@ -7,6 +7,9 @@ mod.onGameStartHasRun = false
 mod.font = Font()
 mod.font:Load('font/luaminioutlined.fnt')
 
+mod.kcolorRed = KColor(1, 0, 0, 0.5) -- red / 50% alpha
+mod.kcolorGreen = KColor(0, 1, 0, 0.5) -- green / 50% alpha
+
 mod.devilAngelRoomStartOptions = { 'default', 'angel', '50/50' }
 
 mod.state = {}
@@ -252,15 +255,17 @@ function mod:onRender()
        (mod.state.enableHome and mod:isHome(false))
      )
   then
-    local chance = mod:getDevilRoomChance()
-    local coords = mod:getTextCoords()
-    local kcolor
-    if chance <= 0.0 then
-      kcolor = KColor(1, 0, 0, 0.5) -- red / 50% alpha
+    local total, devil, angel = mod:getDevilAngelRoomChance()
+    local coords1, coords2 = mod:getTextCoords()
+    if not coords2 then
+      local kcolor1 = total <= 0.0 and mod.kcolorRed or mod.kcolorGreen
+      mod.font:DrawString(string.format('%.1f%%', math.min(total, 1.0) * 100.0), coords1.X, coords1.Y, kcolor1, 0, false)
     else
-      kcolor = KColor(0, 1, 0, 0.5) -- green / 50% alpha
+      local kcolor1 = devil <= 0.0 and mod.kcolorRed or mod.kcolorGreen
+      local kcolor2 = angel <= 0.0 and mod.kcolorRed or mod.kcolorGreen
+      mod.font:DrawString(string.format('%.1f%%', math.min(devil, 1.0) * 100.0), coords1.X, coords1.Y, kcolor1, 0, false)
+      mod.font:DrawString(string.format('%.1f%%', math.min(angel, 1.0) * 100.0), coords2.X, coords2.Y, kcolor2, 0, false)
     end
-    mod.font:DrawString(string.format('%.1f%%', math.min(chance, 1.0) * 100.0), coords.X, coords.Y, kcolor, 0, false)
   end
 end
 
@@ -359,15 +364,17 @@ function mod:getTextCoords()
   then
     coords = coords + Vector(0, 16)
   end
-  if not mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
-    if trueCoopShift then
-      coords = coords + Vector(0, 7)
-    else
-      coords = coords + Vector(0, 6) -- in between devil/angel
-    end
+  
+  coords = coords + game.ScreenShakeOffset + (Options.HUDOffset * Vector(20, 12))
+  
+  if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+    return coords
   end
   
-  return coords + game.ScreenShakeOffset + (Options.HUDOffset * Vector(20, 12))
+  if trueCoopShift then
+    return coords, coords + Vector(0, 14)
+  end
+  return coords, coords + Vector(0, 12)
 end
 
 -- cube of meat/ball of bandages/harbingers are available after defeating mom
@@ -387,12 +394,15 @@ end
 
 function mod:setDevilAngelRoomStart()
   if mod.state.devilAngelRoomStart == 'angel' then
+    game:SetStateFlag(GameStateFlag.STATE_FAMINE_SPAWNED, false) -- angel room spawned
     game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_SPAWNED, true)
     game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_VISITED, false)
   elseif mod.state.devilAngelRoomStart == '50/50' then
+    game:SetStateFlag(GameStateFlag.STATE_FAMINE_SPAWNED, false)
     game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_SPAWNED, true)
     game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_VISITED, true)
   else -- default
+    --game:SetStateFlag(GameStateFlag.STATE_FAMINE_SPAWNED, false)
     --game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_SPAWNED, false)
     --game:SetStateFlag(GameStateFlag.STATE_DEVILROOM_VISITED, false)
   end
@@ -496,6 +506,18 @@ function mod:hasCollectible(collectible)
   return false
 end
 
+function mod:hasTrinket(trinket)
+  for i = 0, game:GetNumPlayers() - 1 do
+    local player = game:GetPlayer(i)
+    
+    if player:HasTrinket(trinket, false) then
+      return true
+    end
+  end
+  
+  return false
+end
+
 function mod:hasTv()
   return #Isaac.FindByType(EntityType.ENTITY_GENERIC_PROP, 4, -1, false, false) > 0
 end
@@ -523,6 +545,74 @@ function mod:getDevilRoomChance()
   end
   
   return chance
+end
+
+function mod:getDevilAngelRoomChance()
+  local level = game:GetLevel()
+  local totalChance = math.min(mod:getDevilRoomChance(), 1.0)
+  
+  local angelRoomSpawned = game:GetStateFlag(GameStateFlag.STATE_FAMINE_SPAWNED) -- repurposed
+  local devilRoomSpawned = game:GetStateFlag(GameStateFlag.STATE_DEVILROOM_SPAWNED)
+  local devilRoomVisited = game:GetStateFlag(GameStateFlag.STATE_DEVILROOM_VISITED)
+  
+  local devilRoomChance = 1.0
+  if mod:hasCollectible(CollectibleType.COLLECTIBLE_EUCHARIST) then
+    devilRoomChance = 0.0
+  elseif devilRoomSpawned and devilRoomVisited and game:GetDevilRoomDeals() > 0 then -- devil deals locked in
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_BOOK_OF_VIRTUES) or
+       mod:hasCollectible(CollectibleType.COLLECTIBLE_ACT_OF_CONTRITION) or
+       level:GetAngelRoomChance() > 0.0 -- confessional, sac room
+    then
+      devilRoomChance = 0.5
+    end
+  elseif devilRoomSpawned or mod:hasCollectible(CollectibleType.COLLECTIBLE_BOOK_OF_VIRTUES) or level:GetAngelRoomChance() > 0.0 then
+    if not (devilRoomVisited or angelRoomSpawned) then
+      devilRoomChance = 0.0
+    else
+      devilRoomChance = 0.5
+    end
+  end
+  
+  -- https://bindingofisaacrebirth.fandom.com/wiki/Angel_Room#Angel_Room_Generation_Chance
+  if devilRoomChance == 0.5 then
+    if mod:hasTrinket(TrinketType.TRINKET_ROSARY_BEAD) then
+      devilRoomChance = devilRoomChance * (1.0 - 0.5)
+    end
+    if game:GetDonationModAngel() >= 10 then -- donate 10 coins
+      devilRoomChance = devilRoomChance * (1.0 - 0.5)
+    end
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_KEY_PIECE_1) then
+      devilRoomChance = devilRoomChance * (1.0 - 0.25)
+    end
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_KEY_PIECE_2) then
+      devilRoomChance = devilRoomChance * (1.0 - 0.25)
+    end
+    if level:GetStateFlag(LevelStateFlag.STATE_EVIL_BUM_KILLED) then
+      devilRoomChance = devilRoomChance * (1.0 - 0.25)
+    end
+    if level:GetStateFlag(LevelStateFlag.STATE_BUM_LEFT) then
+      devilRoomChance = devilRoomChance * (1.0 - 0.1)
+    end
+    if level:GetStateFlag(LevelStateFlag.STATE_EVIL_BUM_LEFT) then
+      devilRoomChance = devilRoomChance * (1.0 + 0.1)
+    end
+    if level:GetAngelRoomChance() > 0.0 or
+       (level:GetAngelRoomChance() < 0.0 and (mod:hasCollectible(CollectibleType.COLLECTIBLE_BOOK_OF_VIRTUES) or mod:hasCollectible(CollectibleType.COLLECTIBLE_ACT_OF_CONTRITION)))
+    then
+      devilRoomChance = devilRoomChance * (1.0 - level:GetAngelRoomChance())
+    end
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_BOOK_OF_VIRTUES) then
+      devilRoomChance = devilRoomChance * (1.0 - 0.25)
+    end
+    devilRoomChance = math.max(0.0, math.min(devilRoomChance, 1.0))
+  end
+  
+  if not game:IsGreedMode() and level:GetStage() == LevelStage.STAGE4_3 then
+    devilRoomChance = 0.5
+  end
+  
+  local angelRoomChance = 1.0 - devilRoomChance
+  return totalChance, totalChance * devilRoomChance, totalChance * angelRoomChance
 end
 
 function mod:tblHasVal(tbl, val)
@@ -829,15 +919,40 @@ function mod:setupModConfigMenu()
         return false
       end,
       Display = function()
-        local chance = mod:getDevilRoomChance()
-        return string.format('Devil + Angel room chance: %.1f%%', math.min(chance, 1.0) * 100.0)
+        local total, devil, angel = mod:getDevilAngelRoomChance()
+        if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+          return string.format('Devil + Angel room chance: %.1f%%', math.min(total, 1.0) * 100.0)
+        end
+        return string.format('Devil room chance: %.1f%%', math.min(devil, 1.0) * 100.0)
       end,
       OnChange = function(b)
         -- nothing to do
       end,
-      Info = { 'The API doesn\'t separate these out' }
+      Info = { ':)' }
     }
   )
+  ModConfigMenu.AddSetting(
+    mod.Name,
+    'Debug',
+    {
+      Type = ModConfigMenu.OptionType.BOOLEAN,
+      CurrentSetting = function()
+        return false
+      end,
+      Display = function()
+        if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+          return ''
+        end
+        local total, devil, angel = mod:getDevilAngelRoomChance()
+        return string.format('Angel room chance: %.1f%%', math.min(angel, 1.0) * 100.0)
+      end,
+      OnChange = function(b)
+        -- nothing to do
+      end,
+      Info = { ':)' }
+    }
+  )
+  ModConfigMenu.AddSpace(mod.Name, 'Debug')
   ModConfigMenu.AddSetting(
     mod.Name,
     'Debug',
@@ -856,7 +971,6 @@ function mod:setupModConfigMenu()
       Info = { 'Requires found hud to be enabled', 'in the options menu' }
     }
   )
-  ModConfigMenu.AddSpace(mod.Name, 'Debug')
   ModConfigMenu.AddSetting(
     mod.Name,
     'Debug',
