@@ -332,37 +332,46 @@ function mod:getTextCoords()
       coords = coords + Vector(0, 12)
     end
   end
-  if game.Difficulty == Difficulty.DIFFICULTY_HARD or                  -- hard mode / victory laps
-     seeds:IsCustomRun() or                                            -- challenge or seeded run
-     Isaac.GetChallenge() ~= Challenge.CHALLENGE_NULL or               -- secondary challenge check
-     seeds:HasSeedEffect(SeedEffect.SEED_INFINITE_BASEMENT) or         -- infinite basements
-     seeds:HasSeedEffect(SeedEffect.SEED_PICKUPS_SLIDE) or             -- tricky pickups
-     seeds:HasSeedEffect(SeedEffect.SEED_ITEMS_COST_MONEY) or          -- f2p version
-     seeds:HasSeedEffect(SeedEffect.SEED_PACIFIST) or                  -- pacifism
-     seeds:HasSeedEffect(SeedEffect.SEED_ENEMIES_RESPAWN) or           -- enemies respawn
-     seeds:HasSeedEffect(SeedEffect.SEED_POOP_TRAIL) or                -- poopy trail
-     seeds:HasSeedEffect(SeedEffect.SEED_INVINCIBLE) or                -- dog mode
-     seeds:HasSeedEffect(SeedEffect.SEED_KIDS_MODE) or                 -- kids' co-op mode
-     seeds:HasSeedEffect(SeedEffect.SEED_PERMANENT_CURSE_LABYRINTH) or -- inescapable labyrinth
-     seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_DARKNESS) or    -- illuminate darkness
-     seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_LABYRINTH) or   -- escape the labyrinth
-     seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_LOST) or        -- i once was lost
-     seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_UNKNOWN) or     -- know the unknown
-     seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_MAZE) or        -- stay out of the maze
-     seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_BLIND) or       -- heal the blind
-     seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_ALL_CURSES) or        -- total curse immunity
-     seeds:HasSeedEffect(SeedEffect.SEED_GLOWING_TEARS) or             -- glowing tears
-     seeds:HasSeedEffect(SeedEffect.SEED_ALL_CHAMPIONS) or             -- champion enemies
-     seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CHARMED) or            -- charmed enemies
-     seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CONFUSED) or           -- confused enemies
-     seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_AFRAID) or             -- scaredy enemies
-     seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_ALTERNATING_FEAR) or   -- skittish enemies
-     seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CHARMED_AND_AFRAID) or -- asocial enemies
-     seeds:HasSeedEffect(SeedEffect.SEED_SUPER_HOT) or                 -- super hot
-     seeds:HasSeedEffect(SeedEffect.SEED_G_FUEL) or                    -- g fuel!
-     (not REPENTOGON and not mod:hasMomBeenDefeated())                 -- has mom been defeated?
-  then
-    coords = coords + Vector(0, 16)
+  if REPENTOGON then
+    if game.Difficulty == Difficulty.DIFFICULTY_HARD or -- hard mode / victory laps
+       game:AchievementUnlocksDisallowed() or           -- challenge, seeded, seed effect, rerun, etc
+       Isaac.GetChallenge() ~= Challenge.CHALLENGE_NULL -- secondary challenge check
+    then
+      coords = coords + Vector(0, 16)
+    end
+  else
+    if game.Difficulty == Difficulty.DIFFICULTY_HARD or                  -- hard mode / victory laps
+       seeds:IsCustomRun() or                                            -- challenge or seeded run
+       Isaac.GetChallenge() ~= Challenge.CHALLENGE_NULL or               -- secondary challenge check
+       seeds:HasSeedEffect(SeedEffect.SEED_INFINITE_BASEMENT) or         -- infinite basements
+       seeds:HasSeedEffect(SeedEffect.SEED_PICKUPS_SLIDE) or             -- tricky pickups
+       seeds:HasSeedEffect(SeedEffect.SEED_ITEMS_COST_MONEY) or          -- f2p version
+       seeds:HasSeedEffect(SeedEffect.SEED_PACIFIST) or                  -- pacifism
+       seeds:HasSeedEffect(SeedEffect.SEED_ENEMIES_RESPAWN) or           -- enemies respawn
+       seeds:HasSeedEffect(SeedEffect.SEED_POOP_TRAIL) or                -- poopy trail
+       seeds:HasSeedEffect(SeedEffect.SEED_INVINCIBLE) or                -- dog mode
+       seeds:HasSeedEffect(SeedEffect.SEED_KIDS_MODE) or                 -- kids' co-op mode
+       seeds:HasSeedEffect(SeedEffect.SEED_PERMANENT_CURSE_LABYRINTH) or -- inescapable labyrinth
+       seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_DARKNESS) or    -- illuminate darkness
+       seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_LABYRINTH) or   -- escape the labyrinth
+       seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_LOST) or        -- i once was lost
+       seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_UNKNOWN) or     -- know the unknown
+       seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_MAZE) or        -- stay out of the maze
+       seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_CURSE_BLIND) or       -- heal the blind
+       seeds:HasSeedEffect(SeedEffect.SEED_PREVENT_ALL_CURSES) or        -- total curse immunity
+       seeds:HasSeedEffect(SeedEffect.SEED_GLOWING_TEARS) or             -- glowing tears
+       seeds:HasSeedEffect(SeedEffect.SEED_ALL_CHAMPIONS) or             -- champion enemies
+       seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CHARMED) or            -- charmed enemies
+       seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CONFUSED) or           -- confused enemies
+       seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_AFRAID) or             -- scaredy enemies
+       seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_ALTERNATING_FEAR) or   -- skittish enemies
+       seeds:HasSeedEffect(SeedEffect.SEED_ALWAYS_CHARMED_AND_AFRAID) or -- asocial enemies
+       seeds:HasSeedEffect(SeedEffect.SEED_SUPER_HOT) or                 -- super hot
+       seeds:HasSeedEffect(SeedEffect.SEED_G_FUEL) or                    -- g fuel!
+       not mod:hasMomBeenDefeated()                                      -- has mom been defeated?
+    then
+      coords = coords + Vector(0, 16)
+    end
   end
   
   coords = coords + game.ScreenShakeOffset + (Options.HUDOffset * Vector(20, 12))
