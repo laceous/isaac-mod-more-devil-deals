@@ -243,6 +243,7 @@ function mod:onRender()
      not seeds:HasSeedEffect(SeedEffect.SEED_NO_HUD) and
      not game:IsGreedMode() and
      not mod:isTheBeast() and
+     Isaac.GetChallenge() ~= Challenge.CHALLENGE_RED_REDEMPTION and
      (
        (mod.state.enableBasementI and mod:isBasementI(false)) or
        (mod.state.enablePreAscent and mod:isPreAscent(false)) or
@@ -536,7 +537,9 @@ function mod:getDevilRoomChance()
   local chance = room:GetDevilRoomChance()
   
   if not game:IsGreedMode() then
-    if mod.state.enableBlueWomb and mod:isBlueWomb(false) then
+    if Isaac.GetChallenge() == Challenge.CHALLENGE_RED_REDEMPTION then
+      chance = 0.0
+    elseif mod.state.enableBlueWomb and mod:isBlueWomb(false) then
       chance = 1.0
     elseif (mod.state.devilRoomSpawned == false and chance < 1.0) or -- goat head / eucharist
            (not mod.state.enableBasementI and mod:isBasementI(false)) or
