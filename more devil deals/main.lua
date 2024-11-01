@@ -422,12 +422,22 @@ function mod:spawnDevilRoomDoor()
   local level = game:GetLevel()
   local room = level:GetCurrentRoom()
   local rng = level:GetDevilAngelRoomRNG()
-  local stage = level:GetStage()
   local animate = mod.state.devilRoomSpawned == nil
   local chance = mod:getDevilRoomChance()
   
   -- room:GetDevilRoomChance doesn't zero out on our custom floors, use a boolean to keep track of that
   if chance > 0.0 then
+    local devilRoom = level:GetRoomByIdx(GridRooms.ROOM_DEVIL_IDX, -1)
+    local isDevilRoomConfigNil = devilRoom.Data == nil
+    
+    -- keep consistent devil/angel room if leaving/entering boss room w/o going in devil/angel room
+    if isDevilRoomConfigNil and not animate then
+      local seed = rng:GetSeed()
+      local shiftIdx = REPENTOGON and rng:GetShiftIdx() or 2
+      rng = RNG()
+      rng:SetSeed(seed, shiftIdx)
+    end
+    
     if rng:RandomFloat() < chance then
       if room:TrySpawnDevilRoomDoor(animate, true) then
         mod.state.devilRoomSpawned = true
@@ -440,30 +450,54 @@ function mod:spawnDevilRoomDoor()
 end
 
 function mod:spawnDevilRoomDoorBlueWomb()
-  local room = game:GetRoom()
-  local player = game:GetPlayer(0)
+  local level = game:GetLevel()
+  local room = level:GetCurrentRoom()
+  local rng = level:GetDevilAngelRoomRNG()
   local animate = mod.state.devilRoomSpawned == nil
   local chance = mod:getDevilRoomChance()
   
-  if chance >= 1.0 then -- 0 or 1
-    local hasDuality = mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY)
+  if chance > 0.0 then
+    local devilRoom = level:GetRoomByIdx(GridRooms.ROOM_DEVIL_IDX, -1)
+    local isDevilRoomConfigNil = devilRoom.Data == nil
     
-    if not hasDuality then
-      player:AddCollectible(CollectibleType.COLLECTIBLE_DUALITY, 0, false, nil, 0)
+    if isDevilRoomConfigNil and not animate then
+      local seed = rng:GetSeed()
+      local shiftIdx = REPENTOGON and rng:GetShiftIdx() or 2
+      rng = RNG()
+      rng:SetSeed(seed, shiftIdx)
     end
     
-    local spawned = room:TrySpawnDevilRoomDoor(animate, true)
-    
-    if not hasDuality then
-      player:RemoveCollectible(CollectibleType.COLLECTIBLE_DUALITY, false, nil, true)
-    end
-    
-    if spawned then
-      -- the wrong door sprites load in this room
-      mod:updateDevilDoorSprites()
+    if rng:RandomFloat() < chance then
+      local seed = level:GetDevilAngelRoomRNG():GetSeed()
+      local shiftIdx = REPENTOGON and level:GetDevilAngelRoomRNG():GetShiftIdx() or 2
       
-      mod.state.devilRoomSpawned = true
-      return
+      -- if the player has duality, 2 doors will spawn and the room config will be nil
+      -- otherwise, only 1 door will spawn, we'll need to spawn a 2nd door and nil out the room config
+      if room:TrySpawnDevilRoomDoor(animate, true) then
+        if isDevilRoomConfigNil then
+          local doors = mod:getDevilRoomDoors()
+          
+          if #doors < 2 then
+            room:TrySpawnDevilRoomDoor(animate, true)
+            doors = mod:getDevilRoomDoors()
+            
+            devilRoom.Data = nil
+            
+            if #doors >= 2 then
+              doors[2].TargetRoomType = doors[1].TargetRoomType == RoomType.ROOM_DEVIL and RoomType.ROOM_ANGEL or RoomType.ROOM_DEVIL
+            end
+            
+            -- reset rng so the devil room that spawns is the same as if you had duality
+            level:GetDevilAngelRoomRNG():SetSeed(seed, shiftIdx)
+          end
+        end
+        
+        -- the wrong door sprites load in this room
+        mod:updateDevilDoorSprites()
+        
+        mod.state.devilRoomSpawned = true
+        return
+      end
     end
   end
   
@@ -482,6 +516,21 @@ function mod:hasDevilRoomDoor()
   end
   
   return false
+end
+
+function mod:getDevilRoomDoors()
+  local room = game:GetRoom()
+  local doors = {}
+  
+  for i = 0, DoorSlot.NUM_DOOR_SLOTS - 1 do
+    local door = room:GetDoor(i)
+    
+    if door and door.TargetRoomIndex == GridRooms.ROOM_DEVIL_IDX then
+      table.insert(doors, door)
+    end
+  end
+  
+  return doors
 end
 
 function mod:updateDevilDoorSprites()
