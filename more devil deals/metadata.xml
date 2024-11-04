@@ -30,9 +30,10 @@ Mod Config Menu can be used to:
 [list]
     [*]enable or disable specific stages
     [*]enable Found HUD integration
+    [*]force devil room type in sheol/dark room, force angel room type in cathedral/chest (unless you have duality)
     [*]choose your starting devil room type: default (devil), angel, or 50/50
 [/list]</description>
-    <version>1.23</version>
+    <version>1.24</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Rooms"/>

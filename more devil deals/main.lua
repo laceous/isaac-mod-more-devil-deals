@@ -26,6 +26,7 @@ mod.state.enableDarkRoom = true -- chest
 mod.state.enableTheVoid = true
 mod.state.enableHome = true
 mod.state.foundHudIntegration = false
+mod.state.forceRoomType = false
 mod.state.devilAngelRoomStart = 'default'
 
 function mod:onGameStart(isContinue)
@@ -43,7 +44,7 @@ function mod:onGameStart(isContinue)
           end
         end
       end
-      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome', 'foundHudIntegration' }) do
+      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome', 'foundHudIntegration', 'forceRoomType' }) do
         if type(state[v]) == 'boolean' then
           mod.state[v] = state[v]
         end
@@ -98,6 +99,7 @@ function mod:save(settingsOnly)
     state.enableTheVoid = mod.state.enableTheVoid
     state.enableHome = mod.state.enableHome
     state.foundHudIntegration = mod.state.foundHudIntegration
+    state.forceRoomType = mod.state.forceRoomType
     state.devilAngelRoomStart = mod.state.devilAngelRoomStart
     
     mod:SaveData(json.encode(state))
@@ -108,6 +110,7 @@ end
 
 -- onNewLevel runs after onNewRoom, but we don't do anything in onNewRoom in the first room of the floor, so this is ok
 -- onNewLevel runs before onGameStart, but that should be ok for our use cases
+-- onNewLevel doesn't run again on continue until you go down to the next floor
 function mod:onNewLevel()
   if not game:IsGreedMode() then
     local level = game:GetLevel()
@@ -171,6 +174,14 @@ function mod:onNewLevel()
     
     mod.state.devilRoomSpawned = nil
     mod.state.lastStage = stage
+    
+    if mod.state.forceRoomType and not mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+      if mod:isSheolOrDarkRoom() then
+        level:InitializeDevilAngelRoom(false, true)
+      elseif mod:isCathedralOrChest() then
+        level:InitializeDevilAngelRoom(true, false)
+      end
+    end
   end
 end
 
@@ -668,8 +679,26 @@ function mod:getDevilAngelRoomChance()
     devilRoomChance = math.max(0.0, math.min(devilRoomChance, 1.0))
   end
   
-  if not game:IsGreedMode() and level:GetStage() == LevelStage.STAGE4_3 then
-    devilRoomChance = 0.5
+  if not game:IsGreedMode() then
+    if mod:isBasementI(false) or
+       mod:isPreAscent(false) or
+       mod:isAscent(false) or
+       mod:isCorpseII(false) or
+       mod:isBlueWomb(false) or
+       mod:isSheolOrCathedral(false) or
+       mod:isDarkRoomOrChest(false) or
+       mod:isTheVoid(false) or
+       mod:isHome(false)
+    then
+      local devilRoom = level:GetRoomByIdx(GridRooms.ROOM_DEVIL_IDX, -1)
+      if devilRoom.Data and devilRoom.Data.Type == RoomType.ROOM_DEVIL then
+        devilRoomChance = 1.0
+      elseif devilRoom.Data and devilRoom.Data.Type == RoomType.ROOM_ANGEL then
+        devilRoomChance = 0.0
+      elseif mod:isBlueWomb(false) then
+        devilRoomChance = 0.5
+      end
+    end
   end
   
   local angelRoomChance = 1.0 - devilRoomChance
@@ -901,6 +930,22 @@ function mod:isHome(checkRoom)
   return levelCheck
 end
 
+function mod:isSheolOrDarkRoom()
+  local level = game:GetLevel()
+  local stage = level:GetStage()
+  
+  return (stage == LevelStage.STAGE5 or stage == LevelStage.STAGE6) and
+         not level:IsAltStage()
+end
+
+function mod:isCathedralOrChest()
+  local level = game:GetLevel()
+  local stage = level:GetStage()
+  
+  return (stage == LevelStage.STAGE5 or stage == LevelStage.STAGE6) and
+         level:IsAltStage()
+end
+
 function mod:isTheBeast()
   local level = game:GetLevel()
   local room = level:GetCurrentRoom()
@@ -1030,6 +1075,24 @@ function mod:setupModConfigMenu()
         mod:save(true)
       end,
       Info = { 'Requires found hud to be enabled', 'in the options menu' }
+    }
+  )
+  ModConfigMenu.AddSetting(
+    mod.Name,
+    'Debug',
+    {
+      Type = ModConfigMenu.OptionType.BOOLEAN,
+      CurrentSetting = function()
+        return mod.state.forceRoomType
+      end,
+      Display = function()
+        return 'Force room type in sheol/cathedral: ' .. (mod.state.forceRoomType and 'on' or 'off')
+      end,
+      OnChange = function(b)
+        mod.state.forceRoomType = b
+        mod:save(true)
+      end,
+      Info = { 'Devil room in sheol/dark room', 'Angel room in cathedral/chest', 'Applied at start of level (if no duality)' }
     }
   )
   ModConfigMenu.AddSetting(
