@@ -506,6 +506,10 @@ function mod:spawnDevilRoomDoorBlueWomb()
         -- the wrong door sprites load in this room
         mod:updateDevilDoorSprites()
         
+        if animate then
+          mod:updateDevilDoorDustColor()
+        end
+        
         mod.state.devilRoomSpawned = true
         return
       end
@@ -562,6 +566,42 @@ function mod:updateDevilDoorSprites()
       end
     end
   end
+end
+
+function mod:updateDevilDoorDustColor()
+  local lastDevilDoorSlot = -1
+  
+  for _, v in ipairs(Isaac.FindByType(EntityType.ENTITY_EFFECT, EffectVariant.DUST_CLOUD, -1, false, false)) do
+    if v.SubType == 0 or v.SubType == 1 then
+      local devilDoorSlot = mod:getDevilDoorSlotFromPosition(v.Position)
+      
+      if devilDoorSlot >= 0 then
+        if devilDoorSlot ~= lastDevilDoorSlot then
+          v.SubType = 1
+          v:GetSprite().Color:SetOffset(-0.5, -0.5, -0.5) -- black/devil
+        else
+          v.SubType = 0
+          v:GetSprite().Color:SetOffset(0, 0, 0) -- white/angel
+        end
+        
+        lastDevilDoorSlot = devilDoorSlot
+      end
+    end
+  end
+end
+
+function mod:getDevilDoorSlotFromPosition(pos)
+  local room = game:GetRoom()
+  
+  for i = 0, DoorSlot.NUM_DOOR_SLOTS - 1 do
+    local door = room:GetDoor(i)
+    
+    if door and door.TargetRoomIndex == GridRooms.ROOM_DEVIL_IDX and room:GetGridIndex(room:GetDoorSlotPosition(i)) == room:GetGridIndex(pos) then
+      return i
+    end
+  end
+  
+  return -1
 end
 
 function mod:hasCollectible(collectible)
