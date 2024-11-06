@@ -267,7 +267,7 @@ function mod:onRender()
        (mod.state.enableHome and mod:isHome(false))
      )
   then
-    local total, devil, angel = mod:getDevilAngelRoomChance()
+    local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
     local coords1, coords2 = mod:getTextCoords()
     if not coords2 then
       local kcolor1 = total <= 0.0 and mod.kcolorRed or mod.kcolorGreen
@@ -719,6 +719,18 @@ function mod:getDevilAngelRoomChance()
     devilRoomChance = math.max(0.0, math.min(devilRoomChance, 1.0))
   end
   
+  local d1 = devilRoomChance
+  
+  local devilRoom = level:GetRoomByIdx(GridRooms.ROOM_DEVIL_IDX, -1)
+  if devilRoom.Data and devilRoom.Data.Type == RoomType.ROOM_DEVIL then
+    d1 = 1.0
+  elseif devilRoom.Data and devilRoom.Data.Type == RoomType.ROOM_ANGEL then
+    d1 = 0.0
+  end
+  
+  local a1 = 1.0 - d1
+  
+  -- the regular stages don't take this into account in the found hud
   if not game:IsGreedMode() then
     if mod:isBasementI(false) or
        mod:isPreAscent(false) or
@@ -730,7 +742,6 @@ function mod:getDevilAngelRoomChance()
        mod:isTheVoid(false) or
        mod:isHome(false)
     then
-      local devilRoom = level:GetRoomByIdx(GridRooms.ROOM_DEVIL_IDX, -1)
       if devilRoom.Data and devilRoom.Data.Type == RoomType.ROOM_DEVIL then
         devilRoomChance = 1.0
       elseif devilRoom.Data and devilRoom.Data.Type == RoomType.ROOM_ANGEL then
@@ -742,7 +753,7 @@ function mod:getDevilAngelRoomChance()
   end
   
   local angelRoomChance = 1.0 - devilRoomChance
-  return totalChance, totalChance * devilRoomChance, totalChance * angelRoomChance
+  return totalChance, totalChance * devilRoomChance, totalChance * angelRoomChance, d1, a1
 end
 
 function mod:tblHasVal(tbl, val)
@@ -1065,16 +1076,26 @@ function mod:setupModConfigMenu()
         return false
       end,
       Display = function()
-        local total, devil, angel = mod:getDevilAngelRoomChance()
+        local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
         if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
           return string.format('Devil + Angel room chance: %.1f%%', math.min(total, 1.0) * 100.0)
         end
-        return string.format('Devil room chance: %.1f%%', math.min(devil, 1.0) * 100.0)
+        local asterisk = devil ~= d1 * total and '*' or ''
+        return string.format('Devil room chance: %.1f%%%s', math.min(devil, 1.0) * 100.0, asterisk)
       end,
       OnChange = function(b)
         -- nothing to do
       end,
-      Info = { ':)' }
+      Info = function()
+        if not mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+          local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
+          local d1Total = d1 * total
+          if devil ~= d1Total then
+            return string.format('* %.1f%%', math.min(d1Total, 1.0) * 100.0)
+          end
+        end
+        return { ':)' }
+      end
     }
   )
   ModConfigMenu.AddSetting(
@@ -1086,16 +1107,53 @@ function mod:setupModConfigMenu()
         return false
       end,
       Display = function()
+        local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
         if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
-          return ''
+          return string.format('Joker chance: %.1f%% / %.1f%%', math.min(d1, 1.0) * 100.0, math.min(a1, 1.0) * 100.0)
         end
-        local total, devil, angel = mod:getDevilAngelRoomChance()
-        return string.format('Angel room chance: %.1f%%', math.min(angel, 1.0) * 100.0)
+        local asterisk = angel ~= a1 * total and '*' or ''
+        return string.format('Angel room chance: %.1f%%%s', math.min(angel, 1.0) * 100.0, asterisk)
       end,
       OnChange = function(b)
         -- nothing to do
       end,
-      Info = { ':)' }
+      Info = function()
+        if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+          return { 'Devil / Angel' }
+        end
+        local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
+        local a1Total = a1 * total
+        if angel ~= a1Total then
+          return string.format('* %.1f%%', math.min(a1Total, 1.0) * 100.0)
+        end
+        return { ':)' }
+      end
+    }
+  )
+  ModConfigMenu.AddSetting(
+    mod.Name,
+    'Debug',
+    {
+      Type = ModConfigMenu.OptionType.BOOLEAN,
+      CurrentSetting = function()
+        return false
+      end,
+      Display = function()
+        local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
+        if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+          return ''
+        end
+        return string.format('Joker chance: %.1f%% / %.1f%%', math.min(d1, 1.0) * 100.0, math.min(a1, 1.0) * 100.0)
+      end,
+      OnChange = function(b)
+        -- nothing to do
+      end,
+      Info = function()
+        if mod:hasCollectible(CollectibleType.COLLECTIBLE_DUALITY) then
+          return { '' }
+        end
+        return { 'Devil / Angel' }
+      end
     }
   )
   ModConfigMenu.AddSpace(mod.Name, 'Debug')
