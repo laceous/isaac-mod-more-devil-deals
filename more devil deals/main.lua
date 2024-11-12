@@ -14,8 +14,9 @@ mod.devilAngelRoomStartOptions = { 'default', 'angel', '50/50' }
 
 mod.state = {}
 mod.state.devilRoomSpawned = nil -- 3 state: nil, false, true; likely edge case w/ glowing hourglass going back a floor
-mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL -- room:GetLastDevilRoomStage doesn't work
+mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL -- room:GetLastDevilRoomStage doesn't work (fixed in repentogon)
 mod.state.lastStage = LevelStage.STAGE_NULL
+mod.state.setLastDevilRoomStage = false
 mod.state.enableBasementI = true
 mod.state.enablePreAscent = false
 mod.state.enableAscent = false
@@ -44,7 +45,7 @@ function mod:onGameStart(isContinue)
           end
         end
       end
-      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome', 'foundHudIntegration', 'forceRoomType' }) do
+      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome', 'foundHudIntegration', 'forceRoomType', 'setLastDevilRoomStage' }) do
         if type(state[v]) == 'boolean' then
           mod.state[v] = state[v]
         end
@@ -67,11 +68,13 @@ function mod:onGameExit(shouldSave)
   if shouldSave then
     mod:save()
     mod.state.devilRoomSpawned = nil
+    mod.state.setLastDevilRoomStage = false
     mod.state.lastStage = LevelStage.STAGE_NULL
     mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
   else
     mod.state.lastDevilRoomStage = LevelStage.STAGE_NULL
     mod.state.lastStage = LevelStage.STAGE_NULL
+    mod.state.setLastDevilRoomStage = false
     mod.state.devilRoomSpawned = nil
     mod:save()
   end
@@ -119,6 +122,12 @@ function mod:onNewLevel()
       stage = stage + 1
     end
     
+    -- not attempting to update stage penalty for mortis I since that's not one of our custom floors
+    if mod.state.setLastDevilRoomStage then
+      game:SetLastDevilRoomStage(math.abs(mod.state.lastDevilRoomStage))
+      mod.state.setLastDevilRoomStage = false
+    end
+    
     --  1 = basement i
     --  2 = basement ii
     --  3 = caves i
@@ -135,6 +144,7 @@ function mod:onNewLevel()
     -- -1 = basement i (ascent)
     local ascentStages = { 1, 2, 3, 4, 5, 6, 7, -7, -6, -5, -4, -3, -2, -1 }
     
+    -- potential repentogon update: MC_PRE_DEVIL_APPLY_STAGE_PENALTY = false / MC_PRE_DEVIL_APPLY_SPECIAL_ITEMS = custom logic
     if mod:isAscent(false) then
       -- deal with going backwards, otherwise we get 100% on every floor in the ascent
       stage = stage * -1
@@ -182,6 +192,10 @@ function mod:onNewLevel()
         level:InitializeDevilAngelRoom(true, false)
       end
     end
+    
+    if mod:isMortisII(false) then
+      level:DisableDevilRoom()
+    end
   end
 end
 
@@ -197,7 +211,7 @@ function mod:onNewRoom()
       if mod:isBasementI(true) or
          mod:isPreAscent(true) or
          mod:isAscent(true) or
-         mod:isCorpseII(true) or
+         mod:isCorpseII(true) or mod:isMortisII(true) or
          mod:isSheolOrCathedral(true) or
          mod:isDarkRoomOrChest(true) or
          mod:isTheVoid(true) or
@@ -216,7 +230,7 @@ end
 function mod:onPreSpawnAward()
   if not game:IsGreedMode() then
     if mod:isBasementI(true) or
-       mod:isCorpseII(true) or
+       mod:isCorpseII(true) or mod:isMortisII(true) or
        mod:isSheolOrCathedral(true) or
        mod:isDarkRoomOrChest(true) or
        mod:isTheVoid(true)
@@ -230,7 +244,13 @@ function mod:onUpdate()
   if not game:IsGreedMode() and mod:hasDevilRoomDoor() then
     local level = game:GetLevel()
     local stage = level:GetStage()
-    if mod:isRepentanceStageType() then
+    local stageType = level:GetStageType()
+    if mod:isMortis() then
+      stage = StageAPI.CurrentStage.LevelgenStage.Stage
+      stageType = StageAPI.CurrentStage.LevelgenStage.StageType
+      mod.state.setLastDevilRoomStage = true
+    end
+    if mod:isRepentanceStageType(stageType) then
       stage = stage + 1
     end
     if mod:isAscent(false) then
@@ -259,7 +279,7 @@ function mod:onRender()
        (mod.state.enableBasementI and mod:isBasementI(false)) or
        (mod.state.enablePreAscent and mod:isPreAscent(false)) or
        (mod.state.enableAscent and mod:isAscent(false)) or
-       (mod.state.enableCorpseII and mod:isCorpseII(false)) or
+       (mod.state.enableCorpseII and (mod:isCorpseII(false) or mod:isMortisII(false))) or
        (mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
        (mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
        (mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
@@ -278,6 +298,12 @@ function mod:onRender()
       mod.font:DrawString(string.format('%.1f%%', math.min(devil, 1.0) * 100.0), coords1.X, coords1.Y, kcolor1, 0, false)
       mod.font:DrawString(string.format('%.1f%%', math.min(angel, 1.0) * 100.0), coords2.X, coords2.Y, kcolor2, 0, false)
     end
+  end
+end
+
+function mod:onPostDevilCalculate()
+  if mod:isMortisII(false) then
+    return 0 -- helps with goat head / eucharist
   end
 end
 
@@ -451,12 +477,16 @@ function mod:spawnDevilRoomDoor()
     
     if rng:RandomFloat() < chance then
       if room:TrySpawnDevilRoomDoor(animate, true) then
-        mod.state.devilRoomSpawned = true
+        if mod.state.devilRoomSpawned == nil then
+          mod.state.devilRoomSpawned = true
+        end
+        
         return
       end
     end
   end
   
+  level:DisableDevilRoom()
   mod.state.devilRoomSpawned = false
 end
 
@@ -510,12 +540,16 @@ function mod:spawnDevilRoomDoorBlueWomb()
           mod:updateDevilDoorDustColor()
         end
         
-        mod.state.devilRoomSpawned = true
+        if mod.state.devilRoomSpawned == nil then
+          mod.state.devilRoomSpawned = true
+        end
+        
         return
       end
     end
   end
   
+  level:DisableDevilRoom()
   mod.state.devilRoomSpawned = false
 end
 
@@ -605,36 +639,63 @@ function mod:getDevilDoorSlotFromPosition(pos)
 end
 
 function mod:hasCollectible(collectible)
-  for i = 0, game:GetNumPlayers() - 1 do
-    local player = game:GetPlayer(i)
-    
-    if player:HasCollectible(collectible, false) then
-      return true
+  if REPENTOGON then
+    return PlayerManager.AnyoneHasCollectible(collectible) -- works with tainted lazarus
+  else
+    for i = 0, game:GetNumPlayers() - 1 do
+      local player = game:GetPlayer(i)
+      
+      if player:HasCollectible(collectible, false) then
+        return true
+      end
     end
+    
+    return false
   end
-  
-  return false
 end
 
 function mod:hasTrinket(trinket)
-  for i = 0, game:GetNumPlayers() - 1 do
-    local player = game:GetPlayer(i)
-    
-    if player:HasTrinket(trinket, false) then
-      return true
+  if REPENTOGON then
+    return PlayerManager.AnyoneHasTrinket(trinket)
+  else
+    for i = 0, game:GetNumPlayers() - 1 do
+      local player = game:GetPlayer(i)
+      
+      if player:HasTrinket(trinket, false) then
+        return true
+      end
     end
+    
+    return false
   end
-  
-  return false
 end
 
 function mod:hasTv()
   return #Isaac.FindByType(EntityType.ENTITY_GENERIC_PROP, 4, -1, false, false) > 0
 end
 
+function mod:countCollectibles(collectible)
+  if REPENTOGON then
+    return PlayerManager.GetNumCollectibles(collectible)
+  else
+    local count = 0
+    
+    for i = 0, game:GetNumPlayers() - 1 do
+      local player = game:GetPlayer(i)
+      count = count + player:GetCollectibleNum(collectible, false)
+    end
+    
+    return count
+  end
+end
+
+function mod:countWisps(collectible)
+  return #Isaac.FindByType(EntityType.ENTITY_FAMILIAR, FamiliarVariant.WISP, collectible, false, false)
+end
+
 function mod:getDevilRoomChance()
   local room = game:GetRoom()
-  local chance = room:GetDevilRoomChance()
+  local chance = mod:isMortisII(false) and mod:getDevilRoomChanceReimpl() or room:GetDevilRoomChance()
   
   if not game:IsGreedMode() then
     if Isaac.GetChallenge() == Challenge.CHALLENGE_RED_REDEMPTION then
@@ -645,7 +706,7 @@ function mod:getDevilRoomChance()
            (not mod.state.enableBasementI and mod:isBasementI(false)) or
            (not mod.state.enablePreAscent and mod:isPreAscent(false)) or
            (not mod.state.enableAscent and mod:isAscent(false)) or
-           (not mod.state.enableCorpseII and mod:isCorpseII(false)) or
+           (not mod.state.enableCorpseII and (mod:isCorpseII(false) or mod:isMortisII(false))) or
            (not mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
            (not mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
            (not mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
@@ -654,6 +715,88 @@ function mod:getDevilRoomChance()
     then
       chance = 0.0
     end
+  end
+  
+  return chance
+end
+
+-- https://github.com/TeamREPENTOGON/REPENTOGON/blob/main/repentogon/Patches/CustomDevilPlanetariumChance.cpp
+function mod:getDevilRoomChanceReimpl()
+  local level = game:GetLevel()
+  local room = level:GetCurrentRoom()
+  local stage = level:GetStage()
+  local stageType = level:GetStageType()
+  local chance = 0
+  
+  if mod:isMortisII(false) then
+    stage = StageAPI.CurrentStage.LevelgenStage.Stage
+    stageType = StageAPI.CurrentStage.LevelgenStage.StageType
+  end
+  if mod:isRepentanceStageType(stageType) then
+    stage = stage + 1
+  end
+  
+  if mod.state.devilRoomSpawned ~= false then
+    chance = chance + 0.01
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_PENTAGRAM) then
+      chance = chance + 0.1
+    end
+    if mod:countCollectibles(CollectibleType.COLLECTIBLE_PENTAGRAM) > 1 then
+      chance = chance + 0.05
+    end
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_BLACK_CANDLE) then
+      chance = chance + 0.15
+    end
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_BOOK_OF_BELIAL) or mod:hasCollectible(CollectibleType.COLLECTIBLE_BOOK_OF_BELIAL_PASSIVE) then
+      chance = chance + 0.125
+    end
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_BOOK_OF_REVELATIONS) then
+      chance = chance + 0.175
+    end
+    if level:GetStateFlag(LevelStateFlag.STATE_BUM_KILLED) then
+      chance = chance + 0.35
+    end
+    if room:IsCurrentRoomLastBoss() and room:GetRedHeartDamage() then
+      if mod:hasCollectible(CollectibleType.COLLECTIBLE_ACT_OF_CONTRITION) then
+        chance = chance + 0.15
+      end
+    else
+      chance = chance + 0.35
+    end
+    if level:GetStateFlag(LevelStateFlag.STATE_REDHEART_DAMAGED) then
+      if mod:hasCollectible(CollectibleType.COLLECTIBLE_ACT_OF_CONTRITION) then
+        chance = chance + 0.4
+      end
+    else
+      chance = chance + 0.99
+    end
+    if level:GetStateFlag(LevelStateFlag.STATE_SHOPKEEPER_KILLED_LVL) then
+      chance = chance + 0.1
+    end
+    if mod:hasTrinket(TrinketType.TRINKET_NUMBER_MAGNET) then
+      chance = chance + 0.1
+    end
+    if mod:hasCollectible(CollectibleType.COLLECTIBLE_SAUSAGE) then
+      chance = chance + 0.069
+    end
+    chance = chance + (0.1 * mod:countWisps(CollectibleType.COLLECTIBLE_SATANIC_BIBLE))
+    if mod.state.lastDevilRoomStage ~= LevelStage.STAGE_NULL then
+      local diff = stage - mod.state.lastDevilRoomStage
+      if diff == 0 or diff == 1 then
+        chance = chance * 0.25
+      elseif diff == 2 then
+        chance = chance * 0.5
+      end
+    end
+  end
+  if mod:hasCollectible(CollectibleType.COLLECTIBLE_GOAT_HEAD) then
+    chance = 66.6
+  end
+  if REPENTOGON and room:GetEffects():HasCollectibleEffect(CollectibleType.COLLECTIBLE_GOAT_HEAD) then
+    chance = 66.6
+  end
+  if mod:hasCollectible(CollectibleType.COLLECTIBLE_EUCHARIST) then
+    chance = 1
   end
   
   return chance
@@ -735,7 +878,7 @@ function mod:getDevilAngelRoomChance()
     if mod:isBasementI(false) or
        mod:isPreAscent(false) or
        mod:isAscent(false) or
-       mod:isCorpseII(false) or
+       mod:isCorpseII(false) or mod:isMortisII(false) or
        mod:isBlueWomb(false) or
        mod:isSheolOrCathedral(false) or
        mod:isDarkRoomOrChest(false) or
@@ -893,6 +1036,42 @@ function mod:isCorpseII(checkRoom)
   return levelCheck
 end
 
+function mod:isMortis()
+  if StageAPI and StageAPI.CurrentStage and not StageAPI.CurrentStage.NormalStage and StageAPI.CurrentStage.LevelgenStage and not StageAPI.InTestMode then
+    local stage = StageAPI.CurrentStage.LevelgenStage.Stage
+    local stageType = StageAPI.CurrentStage.LevelgenStage.StageType
+    
+    return (stage == LevelStage.STAGE4_2 or stage == LevelStage.STAGE4_1) and
+           mod:isRepentanceStageType(stageType)
+  end
+  
+  return false
+end
+
+-- mortis ii/xl (mother)
+function mod:isMortisII(checkRoom)
+  if StageAPI and StageAPI.CurrentStage and not StageAPI.CurrentStage.NormalStage and StageAPI.CurrentStage.LevelgenStage and not StageAPI.InTestMode then
+    local level = game:GetLevel()
+    local room = level:GetCurrentRoom()
+    local roomDesc = level:GetCurrentRoomDesc()
+    local stage = StageAPI.CurrentStage.LevelgenStage.Stage
+    local stageType = StageAPI.CurrentStage.LevelgenStage.StageType
+    
+    local levelCheck = (stage == LevelStage.STAGE4_2 or (mod:isCurseOfTheLabyrinth() and stage == LevelStage.STAGE4_1)) and
+                       mod:isRepentanceStageType(stageType)
+    
+    if checkRoom then
+      return levelCheck and
+             room:GetType() == RoomType.ROOM_BOSS and
+             roomDesc.GridIndex == GridRooms.ROOM_SECRET_EXIT_IDX
+    end
+    
+    return levelCheck
+  end
+  
+  return false
+end
+
 -- ??? / hush (void room)
 -- using the hush room doesn't usually work w/o workarounds
 function mod:isBlueWomb(checkRoom)
@@ -1016,9 +1195,9 @@ function mod:isTheBeast()
          )
 end
 
-function mod:isRepentanceStageType()
+function mod:isRepentanceStageType(stageType)
   local level = game:GetLevel()
-  local stageType = level:GetStageType()
+  stageType = stageType or level:GetStageType()
   
   return stageType == StageType.STAGETYPE_REPENTANCE or stageType == StageType.STAGETYPE_REPENTANCE_B
 end
@@ -1040,7 +1219,7 @@ function mod:setupModConfigMenu()
                        { stage = 'Basement I'       , field = 'enableBasementI', info = { 'Basement, Cellar, Burning Basement' } },
                        { stage = 'Pre-Ascent'       , field = 'enablePreAscent', info = { 'Spawns with Dad\'s Note', 'Mausoleum, Gehenna' } },
                        { stage = 'Ascent'           , field = 'enableAscent'   , info = { 'Spawns in the starting room with light beam', 'Backwards path: Mausoleum -> Basement' } },
-                       { stage = 'Corpse II / XL'   , field = 'enableCorpseII' , info = { 'Spawns after defeating Mother' } },
+                       { stage = 'Corpse II / XL'   , field = 'enableCorpseII' , info = { 'Spawns after defeating Mother', 'Corpse, Mortis' } },
                        { stage = '???'              , field = 'enableBlueWomb' , info = { 'Spawns in The Void room after defeating Hush', 'Duality + Goat Head effects enabled' } },
                        { stage = 'Sheol / Cathedral', field = 'enableSheol'    , info = { 'Spawns after defeating Satan or Isaac' } },
                        { stage = 'Dark Room / Chest', field = 'enableDarkRoom' , info = { 'Spawns after defeating The Lamb or ???' } },
@@ -1223,6 +1402,10 @@ mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
 mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, mod.onPreSpawnAward)
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
+if REPENTOGON then
+  -- used with mortis which requires repentogon
+  mod:AddPriorityCallback(ModCallbacks.MC_POST_DEVIL_CALCULATE, CallbackPriority.IMPORTANT, mod.onPostDevilCalculate)
+end
 
 if ModConfigMenu then
   mod:setupModConfigMenu()
