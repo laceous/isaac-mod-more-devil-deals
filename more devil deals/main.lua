@@ -312,6 +312,10 @@ function mod:getTextCoords()
   local seeds = game:GetSeeds()
   local coords = Vector(35, 145) -- default w/ bombShift
   
+  if FontRenderSettings ~= nil then -- eid check for rep+
+    coords = coords + Vector(0, 2)
+  end
+  
   local shiftCount = 0
   local bombShift = false
   local poopShift = false
@@ -611,11 +615,14 @@ function mod:updateDevilDoorDustColor()
       
       if devilDoorSlot >= 0 then
         if devilDoorSlot ~= lastDevilDoorSlot then
+          -- v:GetSprite().Color seems to be readonly in rep+, can't directly call SetOffset anymore
+          local color = v:GetSprite().Color
+          v:GetSprite().Color = Color(color.R, color.G, color.B, color.A, -0.5, -0.5, -0.5) -- black/devil
           v.SubType = 1
-          v:GetSprite().Color:SetOffset(-0.5, -0.5, -0.5) -- black/devil
         else
+          local color = v:GetSprite().Color
+          v:GetSprite().Color = Color(color.R, color.G, color.B, color.A, 0, 0, 0) -- white/angel
           v.SubType = 0
-          v:GetSprite().Color:SetOffset(0, 0, 0) -- white/angel
         end
         
         lastDevilDoorSlot = devilDoorSlot
