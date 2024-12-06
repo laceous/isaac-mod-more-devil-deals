@@ -312,7 +312,7 @@ function mod:getTextCoords()
   local seeds = game:GetSeeds()
   local coords = Vector(35, 145) -- default w/ bombShift
   
-  if FontRenderSettings ~= nil then -- eid check for rep+
+  if REPENTANCE_PLUS then
     coords = coords + Vector(0, 2)
   end
   
