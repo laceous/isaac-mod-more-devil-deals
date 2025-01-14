@@ -1193,12 +1193,18 @@ function mod:isTheBeast()
   return stage == LevelStage.STAGE8 and
          room:GetType() == RoomType.ROOM_DUNGEON and
          (
-           roomDesc.Data.Variant == 666 or
-           roomDesc.Data.Variant == 667 or
-           roomDesc.Data.Variant == 668 or
-           roomDesc.Data.Variant == 669 or
-           roomDesc.Data.Variant == 670 or
-           roomDesc.Data.Variant == 671
+           (
+             roomDesc.Data.StageID == 35 and -- home
+             (
+               roomDesc.Data.Variant == 666 or
+               roomDesc.Data.Variant == 667 or
+               roomDesc.Data.Variant == 668 or
+               roomDesc.Data.Variant == 669 or
+               roomDesc.Data.Variant == 670 or
+               roomDesc.Data.Variant == 671
+             )
+           ) or
+           roomDesc.Data.Subtype == 4
          )
 end
 
