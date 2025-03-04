@@ -681,6 +681,20 @@ function mod:hasTv()
   return #Isaac.FindByType(EntityType.ENTITY_GENERIC_PROP, 4, -1, false, false) > 0
 end
 
+function mod:hasTrapdoor()
+  local room = game:GetRoom()
+  
+  for i = 0, room:GetGridSize() - 1 do
+    local gridEntity = room:GetGridEntity(i)
+    
+    if gridEntity and gridEntity:GetType() == GridEntityType.GRID_TRAPDOOR then
+      return true
+    end
+  end
+  
+  return false
+end
+
 function mod:countCollectibles(collectible)
   if REPENTOGON then
     return PlayerManager.GetNumCollectibles(collectible)
@@ -1161,7 +1175,10 @@ function mod:isHome(checkRoom)
   if checkRoom then
     return levelCheck and
            room:IsCurrentRoomLastBoss() and
-           not mod:hasTv() -- requires no auto-cutscenes mod
+           (
+             not mod:hasTv() or -- requires no auto-cutscenes mod
+             mod:hasTrapdoor()  -- requires runs continue past the beast mod (devil deal chance gets reset due to floor reloading)
+           )
   end
   
   return levelCheck
@@ -1411,7 +1428,7 @@ end
 mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, mod.onGameStart)
 mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, mod.onGameExit)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, mod.onNewLevel)
-mod:AddCallback(ModCallbacks.MC_POST_NEW_ROOM, mod.onNewRoom)
+mod:AddPriorityCallback(ModCallbacks.MC_POST_NEW_ROOM, CallbackPriority.LATE, mod.onNewRoom)
 mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, mod.onPreSpawnAward)
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)

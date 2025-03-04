@@ -24,7 +24,7 @@ In The Void, you'll start the floor with 100%, but it's not guaranteed. You can 
 
 In the Ascent, Devil Deals will spawn in the starting room rather than the boss room since you start in the boss room. There's usually available door slots here, but depending on layout + red rooms there might not be. The same door slot logic applies to boss rooms in The Void.
 
-Home requires the [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2908633985]No Auto-Cutscenes[/url] mod. Any Devil Deals will show up in the living room after you defeat The Beast.
+Home requires one of the following mods: [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2908633985]No Auto-Cutscenes[/url] or [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3430483536]Runs Continue Past The Beast[/url]. Any Devil Deals will show up in the living room after you defeat The Beast.
 
 Mod Config Menu can be used to:
 [list]
@@ -33,7 +33,7 @@ Mod Config Menu can be used to:
     [*]force devil room type in sheol/dark room, force angel room type in cathedral/chest (unless you have duality)
     [*]choose your starting devil room type: default (devil), angel, or 50/50
 [/list]</description>
-    <version>1.30</version>
+    <version>1.31</version>
     <visibility>Public</visibility>
     <tag id="Lua"/>
     <tag id="Rooms"/>
