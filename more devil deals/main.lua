@@ -287,16 +287,18 @@ function mod:onRender()
        (mod.state.enableHome and mod:isHome(false))
      )
   then
-    local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
     local coords1, coords2 = mod:getTextCoords()
-    if not coords2 then
-      local kcolor1 = total <= 0.0 and mod.kcolorRed or mod.kcolorGreen
-      mod.font:DrawString(string.format('%.1f%%', math.min(total, 1.0) * 100.0), coords1.X, coords1.Y, kcolor1, 0, false)
-    else
-      local kcolor1 = devil <= 0.0 and mod.kcolorRed or mod.kcolorGreen
-      local kcolor2 = angel <= 0.0 and mod.kcolorRed or mod.kcolorGreen
-      mod.font:DrawString(string.format('%.1f%%', math.min(devil, 1.0) * 100.0), coords1.X, coords1.Y, kcolor1, 0, false)
-      mod.font:DrawString(string.format('%.1f%%', math.min(angel, 1.0) * 100.0), coords2.X, coords2.Y, kcolor2, 0, false)
+    if coords1 then
+      local total, devil, angel, d1, a1 = mod:getDevilAngelRoomChance()
+      if not coords2 then
+        local kcolor1 = total <= 0.0 and mod.kcolorRed or mod.kcolorGreen
+        mod.font:DrawString(string.format('%.1f%%', math.min(total, 1.0) * 100.0), coords1.X, coords1.Y, kcolor1, 0, false)
+      else
+        local kcolor1 = devil <= 0.0 and mod.kcolorRed or mod.kcolorGreen
+        local kcolor2 = angel <= 0.0 and mod.kcolorRed or mod.kcolorGreen
+        mod.font:DrawString(string.format('%.1f%%', math.min(devil, 1.0) * 100.0), coords1.X, coords1.Y, kcolor1, 0, false)
+        mod.font:DrawString(string.format('%.1f%%', math.min(angel, 1.0) * 100.0), coords2.X, coords2.Y, kcolor2, 0, false)
+      end
     end
   end
 end
@@ -324,35 +326,46 @@ function mod:getTextCoords()
   local trueCoopShift = false
   local jacobShift = false
   
+  local iMod = -1
   for i = 0, game:GetNumPlayers() - 1 do
     local player = game:GetPlayer(i)
     local playerType = player:GetPlayerType()
     
-    if playerType == PlayerType.PLAYER_BLUEBABY_B then
-      poopShift = true
-    else
-      bombShift = true
+    -- tainted soul doesn't affect the hud
+    -- if only tainted soul then no hud
+    if playerType ~= PlayerType.PLAYER_THESOUL_B then
+      iMod = iMod + 1
       
-      if playerType == PlayerType.PLAYER_BETHANY then
-        blueHeartShift = true
-      elseif playerType == PlayerType.PLAYER_BETHANY_B then
-        redHeartShift = true
+      if playerType == PlayerType.PLAYER_BLUEBABY_B then
+        poopShift = true
+      else
+        bombShift = true
+        
+        if playerType == PlayerType.PLAYER_BETHANY then
+          blueHeartShift = true
+        elseif playerType == PlayerType.PLAYER_BETHANY_B then
+          redHeartShift = true
+        end
+      end
+      
+      if i == 0 then
+        if playerType == PlayerType.PLAYER_JACOB then
+          jacobShift = true
+        end
+      elseif iMod > 0 then
+        -- not child, not co-op baby
+        -- it's possible for a player to initially not be a child and then be changed to a child later on
+        -- the game will still show the true co-op ui in that case, that's an edge case we're not checking for here
+        -- you can quit/continue to fix the visual glitch
+        if player.Parent == nil and player:GetBabySkin() == BabySubType.BABY_UNASSIGNED then
+          trueCoopShift = true
+        end
       end
     end
-    
-    if i == 0 then
-      if playerType == PlayerType.PLAYER_JACOB then
-        jacobShift = true
-      end
-    elseif i > 0 then
-      -- not child, not co-op baby
-      -- it's possible for a player to initially not be a child and then be changed to a child later on
-      -- the game will still show the true co-op ui in that case, that's an edge case we're not checking for here
-      -- you can quit/continue to fix the visual glitch
-      if player.Parent == nil and player:GetBabySkin() == BabySubType.BABY_UNASSIGNED then
-        trueCoopShift = true
-      end
-    end
+  end
+  
+  if not bombShift and not poopShift then
+    return nil
   end
   
   if bombShift and poopShift then
