@@ -232,24 +232,17 @@ end
 -- potential issue: other mods can cause this callback to be skipped by returning true
 -- an alt implementation would involve hooking into MC_POST_UPDATE and constantly checking which is inefficient
 function mod:onPreSpawnAward()
-  if not game:IsGreedMode() then
+  if game:IsGreedMode() then
+    if mod:isUltraGreed(true) then
+      mod:spawnDevilRoomDoor()
+    end
+  else
     if mod:isBasementI(true) or
        mod:isCorpseII(true) or mod:isMortisII(true) or
        mod:isSheolOrCathedral(true) or
        mod:isDarkRoomOrChest(true) or
        mod:isTheVoid(true)
     then
-      mod:spawnDevilRoomDoor()
-    end
-  end
-end
-
--- filtered to PICKUP_BIGCHEST
-function mod:onPickupInit()
-  if game:IsGreedMode() then
-    local room = game:GetRoom()
-    
-    if mod:isUltraGreed(true) and room:GetFrameCount() > 0 then
       mod:spawnDevilRoomDoor()
     end
   end
@@ -1487,7 +1480,6 @@ mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, mod.onGameExit)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, mod.onNewLevel)
 mod:AddPriorityCallback(ModCallbacks.MC_POST_NEW_ROOM, CallbackPriority.LATE, mod.onNewRoom)
 mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, mod.onPreSpawnAward)
-mod:AddCallback(ModCallbacks.MC_POST_PICKUP_INIT, mod.onPickupInit, PickupVariant.PICKUP_BIGCHEST)
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 if REPENTOGON then
