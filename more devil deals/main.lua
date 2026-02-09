@@ -26,6 +26,7 @@ mod.state.enableSheol = true    -- cathedral
 mod.state.enableDarkRoom = true -- chest
 mod.state.enableTheVoid = true
 mod.state.enableHome = true
+mod.state.enableUltraGreed = true
 mod.state.foundHudIntegration = false
 mod.state.forceRoomType = false
 mod.state.devilAngelRoomStart = 'default'
@@ -45,7 +46,7 @@ function mod:onGameStart(isContinue)
           end
         end
       end
-      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome', 'foundHudIntegration', 'forceRoomType', 'setLastDevilRoomStage' }) do
+      for _, v in ipairs({ 'enableBasementI', 'enablePreAscent', 'enableAscent', 'enableCorpseII', 'enableBlueWomb', 'enableSheol', 'enableDarkRoom', 'enableTheVoid', 'enableHome', 'enableUltraGreed', 'foundHudIntegration', 'forceRoomType', 'setLastDevilRoomStage' }) do
         if type(state[v]) == 'boolean' then
           mod.state[v] = state[v]
         end
@@ -101,6 +102,7 @@ function mod:save(settingsOnly)
     state.enableDarkRoom = mod.state.enableDarkRoom
     state.enableTheVoid = mod.state.enableTheVoid
     state.enableHome = mod.state.enableHome
+    state.enableUltraGreed = mod.state.enableUltraGreed
     state.foundHudIntegration = mod.state.foundHudIntegration
     state.forceRoomType = mod.state.forceRoomType
     state.devilAngelRoomStart = mod.state.devilAngelRoomStart
@@ -115,7 +117,9 @@ end
 -- onNewLevel runs before onGameStart, but that should be ok for our use cases
 -- onNewLevel doesn't run again on continue until you go down to the next floor
 function mod:onNewLevel()
-  if not game:IsGreedMode() then
+  if game:IsGreedMode() then
+    mod.state.devilRoomSpawned = nil
+  else
     local level = game:GetLevel()
     local stage = level:GetStage()
     if mod:isRepentanceStageType() then
@@ -240,6 +244,17 @@ function mod:onPreSpawnAward()
   end
 end
 
+-- filtered to PICKUP_BIGCHEST
+function mod:onPickupInit()
+  if game:IsGreedMode() then
+    local room = game:GetRoom()
+    
+    if mod:isUltraGreed(true) and room:GetFrameCount() > 0 then
+      mod:spawnDevilRoomDoor()
+    end
+  end
+end
+
 function mod:onUpdate()
   if not game:IsGreedMode() and mod:hasDevilRoomDoor() then
     local level = game:GetLevel()
@@ -272,19 +287,26 @@ function mod:onRender()
   if Options.FoundHUD and
      hud:IsVisible() and
      not seeds:HasSeedEffect(SeedEffect.SEED_NO_HUD) and
-     not game:IsGreedMode() and
-     not mod:isTheBeast() and
-     Isaac.GetChallenge() ~= Challenge.CHALLENGE_RED_REDEMPTION and
      (
-       (mod.state.enableBasementI and mod:isBasementI(false)) or
-       (mod.state.enablePreAscent and mod:isPreAscent(false)) or
-       (mod.state.enableAscent and mod:isAscent(false)) or
-       (mod.state.enableCorpseII and (mod:isCorpseII(false) or mod:isMortisII(false))) or
-       (mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
-       (mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
-       (mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
-       (mod.state.enableTheVoid and mod:isTheVoid(false)) or
-       (mod.state.enableHome and mod:isHome(false))
+       (
+         not game:IsGreedMode() and
+         not mod:isTheBeast() and
+         Isaac.GetChallenge() ~= Challenge.CHALLENGE_RED_REDEMPTION and
+         (
+           (mod.state.enableBasementI and mod:isBasementI(false)) or
+           (mod.state.enablePreAscent and mod:isPreAscent(false)) or
+           (mod.state.enableAscent and mod:isAscent(false)) or
+           (mod.state.enableCorpseII and (mod:isCorpseII(false) or mod:isMortisII(false))) or
+           (mod.state.enableBlueWomb and mod:isBlueWomb(false)) or
+           (mod.state.enableSheol and mod:isSheolOrCathedral(false)) or
+           (mod.state.enableDarkRoom and mod:isDarkRoomOrChest(false)) or
+           (mod.state.enableTheVoid and mod:isTheVoid(false)) or
+           (mod.state.enableHome and mod:isHome(false))
+         )
+       ) or
+       (
+         game:IsGreedMode() and mod.state.enableUltraGreed and mod:isUltraGreed(false)
+       )
      )
   then
     local coords1, coords2 = mod:getTextCoords()
@@ -304,7 +326,7 @@ function mod:onRender()
 end
 
 function mod:onPostDevilCalculate()
-  if mod:isMortisII(false) then
+  if not game:IsGreedMode() and mod:isMortisII(false) then
     return 0 -- helps with goat head / eucharist
   end
 end
@@ -389,6 +411,7 @@ function mod:getTextCoords()
   end
   if REPENTOGON then
     if game.Difficulty == Difficulty.DIFFICULTY_HARD or -- hard mode / victory laps
+       game:IsGreedMode() or                            -- greed mode
        game:AchievementUnlocksDisallowed() or           -- challenge, seeded, seed effect, rerun, etc
        Isaac.GetChallenge() ~= Challenge.CHALLENGE_NULL -- secondary challenge check
     then
@@ -396,6 +419,7 @@ function mod:getTextCoords()
     end
   else
     if game.Difficulty == Difficulty.DIFFICULTY_HARD or                  -- hard mode / victory laps
+       game:IsGreedMode() or                                             -- greed mode
        seeds:IsCustomRun() or                                            -- challenge or seeded run
        Isaac.GetChallenge() ~= Challenge.CHALLENGE_NULL or               -- secondary challenge check
        seeds:HasSeedEffect(SeedEffect.SEED_INFINITE_BASEMENT) or         -- infinite basements
@@ -729,9 +753,13 @@ end
 
 function mod:getDevilRoomChance()
   local room = game:GetRoom()
-  local chance = mod:isMortisII(false) and mod:getDevilRoomChanceReimpl() or room:GetDevilRoomChance()
+  local chance = (not game:IsGreedMode() and mod:isMortisII(false)) and mod:getDevilRoomChanceReimpl() or room:GetDevilRoomChance()
   
-  if not game:IsGreedMode() then
+  if game:IsGreedMode() then
+    if mod.state.enableUltraGreed and mod:isUltraGreed(false) then
+      chance = 1.0
+    end
+  else
     if Isaac.GetChallenge() == Challenge.CHALLENGE_RED_REDEMPTION then
       chance = 0.0
     elseif mod.state.enableBlueWomb and mod:isBlueWomb(false) then
@@ -762,7 +790,7 @@ function mod:getDevilRoomChanceReimpl()
   local stageType = level:GetStageType()
   local chance = 0
   
-  if mod:isMortisII(false) then
+  if not game:IsGreedMode() and mod:isMortisII(false) then
     stage = StageAPI.CurrentStage.LevelgenStage.Stage
     stageType = StageAPI.CurrentStage.LevelgenStage.StageType
   end
@@ -1238,6 +1266,21 @@ function mod:isTheBeast()
          )
 end
 
+function mod:isUltraGreed(checkRoom)
+  local level = game:GetLevel()
+  local room = level:GetCurrentRoom()
+  local stage = level:GetStage()
+  
+  local levelCheck = stage == LevelStage.STAGE7_GREED
+  
+  if checkRoom then
+    return levelCheck and
+           room:IsCurrentRoomLastBoss()
+  end
+  
+  return levelCheck
+end
+
 function mod:isRepentanceStageType(stageType)
   local level = game:GetLevel()
   stageType = stageType or level:GetStageType()
@@ -1259,15 +1302,16 @@ function mod:setupModConfigMenu()
     ModConfigMenu.RemoveSubcategory(mod.Name, v)
   end
   for _, v in ipairs({
-                       { stage = 'Basement I'       , field = 'enableBasementI', info = { 'Basement, Cellar, Burning Basement' } },
-                       { stage = 'Pre-Ascent'       , field = 'enablePreAscent', info = { 'Spawns with Dad\'s Note', 'Mausoleum, Gehenna' } },
-                       { stage = 'Ascent'           , field = 'enableAscent'   , info = { 'Spawns in the starting room with light beam', 'Backwards path: Mausoleum -> Basement' } },
-                       { stage = 'Corpse II / XL'   , field = 'enableCorpseII' , info = { 'Spawns after defeating Mother', 'Corpse, Mortis' } },
-                       { stage = '???'              , field = 'enableBlueWomb' , info = { 'Spawns in The Void room after defeating Hush', 'Duality + Goat Head effects enabled' } },
-                       { stage = 'Sheol / Cathedral', field = 'enableSheol'    , info = { 'Spawns after defeating Satan or Isaac' } },
-                       { stage = 'Dark Room / Chest', field = 'enableDarkRoom' , info = { 'Spawns after defeating The Lamb or ???' } },
-                       { stage = 'The Void'         , field = 'enableTheVoid'  , info = { 'Spawns after defeating Delirium', 'Start with 100% chance' } },
-                       { stage = 'Home'             , field = 'enableHome'     , info = { 'Spawns in the living room after defeating', 'The Beast' } }
+                       { stage = 'Basement I'       , field = 'enableBasementI' , info = { 'Basement, Cellar, Burning Basement' } },
+                       { stage = 'Pre-Ascent'       , field = 'enablePreAscent' , info = { 'Spawns with Dad\'s Note', 'Mausoleum, Gehenna' } },
+                       { stage = 'Ascent'           , field = 'enableAscent'    , info = { 'Spawns in the starting room with light beam', 'Backwards path: Mausoleum -> Basement' } },
+                       { stage = 'Corpse II / XL'   , field = 'enableCorpseII'  , info = { 'Spawns after defeating Mother', 'Corpse, Mortis' } },
+                       { stage = '???'              , field = 'enableBlueWomb'  , info = { 'Spawns in The Void room after defeating Hush', 'Duality + Goat Head effects enabled' } },
+                       { stage = 'Sheol / Cathedral', field = 'enableSheol'     , info = { 'Spawns after defeating Satan or Isaac' } },
+                       { stage = 'Dark Room / Chest', field = 'enableDarkRoom'  , info = { 'Spawns after defeating The Lamb or ???' } },
+                       { stage = 'The Void'         , field = 'enableTheVoid'   , info = { 'Spawns after defeating Delirium', 'Start with a 100% chance' } },
+                       { stage = 'Home'             , field = 'enableHome'      , info = { 'Spawns in the living room after defeating', 'The Beast' } },
+                       { stage = 'Ultra Greed'      , field = 'enableUltraGreed', info = { 'Spawns after defeating Ultra Greed(ier)', 'This is a 100% chance' } },
                     })
   do
     ModConfigMenu.AddSetting(
@@ -1443,6 +1487,7 @@ mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT, mod.onGameExit)
 mod:AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, mod.onNewLevel)
 mod:AddPriorityCallback(ModCallbacks.MC_POST_NEW_ROOM, CallbackPriority.LATE, mod.onNewRoom)
 mod:AddCallback(ModCallbacks.MC_PRE_SPAWN_CLEAN_AWARD, mod.onPreSpawnAward)
+mod:AddCallback(ModCallbacks.MC_POST_PICKUP_INIT, mod.onPickupInit, PickupVariant.PICKUP_BIGCHEST)
 mod:AddCallback(ModCallbacks.MC_POST_UPDATE, mod.onUpdate)
 mod:AddCallback(ModCallbacks.MC_POST_RENDER, mod.onRender)
 if REPENTOGON then
