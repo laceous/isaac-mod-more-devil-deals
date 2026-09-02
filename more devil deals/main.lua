@@ -545,6 +545,7 @@ function mod:spawnDevilRoomDoorBlueWomb()
     if rng:RandomFloat() < chance then
       local seed = level:GetDevilAngelRoomRNG():GetSeed()
       local shiftIdx = REPENTOGON and level:GetDevilAngelRoomRNG():GetShiftIdx() or 2
+      local krampusSpawned = game:GetStateFlag(GameStateFlag.STATE_KRAMPUS_SPAWNED)
       
       -- if the player has duality, 2 doors will spawn and the room config will be nil
       -- otherwise, only 1 door will spawn, we'll need to spawn a 2nd door and nil out the room config
@@ -559,6 +560,7 @@ function mod:spawnDevilRoomDoorBlueWomb()
             devilRoom.Data = nil
             -- krampus, but if you go thru the angel door it spawns super greed which isn't a normal mechanic
             devilRoom.Flags = devilRoom.Flags & ~RoomDescriptor.FLAG_SURPRISE_MINIBOSS
+            game:SetStateFlag(GameStateFlag.STATE_KRAMPUS_SPAWNED, krampusSpawned)
             
             if #doors >= 2 then
               doors[2].TargetRoomType = doors[1].TargetRoomType == RoomType.ROOM_DEVIL and RoomType.ROOM_ANGEL or RoomType.ROOM_DEVIL
