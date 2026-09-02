@@ -557,6 +557,8 @@ function mod:spawnDevilRoomDoorBlueWomb()
             doors = mod:getDevilRoomDoors()
             
             devilRoom.Data = nil
+            -- krampus, but if you go thru the angel door it spawns super greed which isn't a normal mechanic
+            devilRoom.Flags = devilRoom.Flags & ~RoomDescriptor.FLAG_SURPRISE_MINIBOSS
             
             if #doors >= 2 then
               doors[2].TargetRoomType = doors[1].TargetRoomType == RoomType.ROOM_DEVIL and RoomType.ROOM_ANGEL or RoomType.ROOM_DEVIL
